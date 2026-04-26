@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Voltaire AI
 
 **Autonomous Portfolio Rebalancing Agent** — powered by 0G · Uniswap · KeeperHub
@@ -116,3 +117,7 @@ Telegram: @AlmondWeb3
 ## License
 
 MIT
+=======
+# voltaire-ai
+oltaire AI monitors your on-chain portfolio daily, calculates drift from your target ratio, and automatically executes the minimum swaps needed to rebalance — powered by 0G, settled via Uniswap, guaranteed by KeeperHub.
+>>>>>>> 618cbafc5f9d7e4a103a22b49ef1c079073ca8b2

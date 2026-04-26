@@ -3,7 +3,7 @@
 export interface TokenBalance {
   symbol: string;
   address: string;
-  amount: string;       // raw wei string
+  amount: string;
   decimals: number;
   usdValue: number;
 }
@@ -12,9 +12,9 @@ export interface PortfolioState {
   walletAddress: string;
   balances: TokenBalance[];
   totalUsdValue: number;
-  currentRatios: Record<string, number>;  // { ETH: 0.65, USDC: 0.35 }
-  targetRatios: Record<string, number>;   // { ETH: 0.60, USDC: 0.40 }
-  driftAmounts: Record<string, number>;   // { ETH: 0.05, USDC: -0.05 }
+  currentRatios: Record<string, number>;
+  targetRatios: Record<string, number>;
+  driftAmounts: Record<string, number>;
   maxDrift: number;
   timestamp: number;
 }
@@ -23,9 +23,9 @@ export interface SwapDecision {
   shouldSwap: boolean;
   tokenIn: string;
   tokenOut: string;
-  amountIn: string;     // wei
+  amountIn: string;
   reasoning: string;
-  confidence: number;   // 0-1
+  confidence: number;
 }
 
 export interface QuoteResult {
@@ -38,6 +38,7 @@ export interface QuoteResult {
   gasEstimate: string;
   quoteId: string;
   expiresAt: number;
+  rawQuote?: any;
 }
 
 export interface UnsignedTransaction {
