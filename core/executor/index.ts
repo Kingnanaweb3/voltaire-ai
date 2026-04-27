@@ -10,7 +10,7 @@ export class KeeperHubExecutor {
   private sessionId: string | null = null;
   private walletId: string = '9ztp3k16m2dvwfblt44ka';
   private provider: ethers.JsonRpcProvider;
-  private wallet: ethers.Wallet;
+  private wallet: ethers.Wallet | ethers.HDNodeWallet;
 
   constructor() {
     this.mcpUrl = process.env.KEEPERHUB_MCP_URL || 'https://app.keeperhub.com/mcp';
@@ -70,7 +70,7 @@ export class KeeperHubExecutor {
     return res.data?.result;
   }
 
-  async getOrCreateRebalancerWorkflow(): Promise<string> {
+  async getOrCreateRebalancerWorkflow(tx?: UnsignedTransaction): Promise<string> {
     const listResult = await this.callTool('list_workflows', { limit: 20 });
     const text = listResult?.content?.[0]?.text || '[]';
     let workflows: any[] = [];
@@ -78,6 +78,10 @@ export class KeeperHubExecutor {
 
     const existing = workflows.find((w: any) => w.name === 'voltaire-rebalancer-v3');
     if (existing) {
+      console.log(`[KeeperHub] Deleting stale workflow: ${existing.id}`);
+      await this.callTool('delete_workflow', { workflowId: existing.id, force: true });
+    }
+    if (false) {
       console.log(`[KeeperHub] Using existing workflow: ${existing.id}`);
       return existing.id;
     }
@@ -108,8 +112,8 @@ export class KeeperHubExecutor {
             config: {
               actionType: 'web3/transfer-funds',
               network: '8453',
-              toAddress: '0x0514E3b0eA3C16ADa117ecf1892b050df3C2F273',
-              amount: '0.01',
+              recipient: tx?.to || '0x0514E3b0eA3C16ADa117ecf1892b050df3C2F273',
+              amount: tx?.value ? ethers.formatEther(tx.value) : '0.01',
               walletId: this.walletId
             },
             status: 'idle'
@@ -133,24 +137,18 @@ export class KeeperHubExecutor {
 
   async submit(tx: UnsignedTransaction): Promise<string> {
     if (!this.sessionId) await this.initialize();
-    const workflowId = await this.getOrCreateRebalancerWorkflow();
-    const execResult = await this.callTool('execute_workflow', {
-      workflowId,
-      input: {
-        transaction: {
-          to: tx.to,
-          data: tx.data,
-          value: tx.value,
-          gasLimit: tx.gasLimit,
-          chainId: tx.chainId,
-        }
-      }
+    const amount = ethers.formatEther(tx.value || '0');
+    console.log(`[KeeperHub] Executing transfer — to: ${tx.to}, amount: ${amount} ETH`);
+    const result = await this.callTool('execute_transfer', {
+      network: '84532',
+      recipient_address: tx.to,
+      amount: amount,
     });
-    const execText = execResult?.content?.[0]?.text || '{}';
+    const text = result?.content?.[0]?.text || '{}';
     let exec: any = {};
-    try { exec = JSON.parse(execText); } catch {}
-    const executionId = exec?.executionId || exec?.id || `exec_${Date.now()}`;
-    console.log(`[KeeperHub] Workflow execution started: ${executionId}`);
+    try { exec = JSON.parse(text); } catch {}
+    const executionId = exec?.execution_id || exec?.executionId || exec?.id || `exec_${Date.now()}`;
+    console.log(`[KeeperHub] Transfer execution started: ${executionId}`);
     return executionId;
   }
 
@@ -160,7 +158,7 @@ export class KeeperHubExecutor {
 
     while (Date.now() - start < timeoutMs) {
       try {
-        const statusResult = await this.callTool('get_execution_status', { executionId });
+        const statusResult = await this.callTool('get_direct_execution_status', { execution_id: executionId });
         const statusText = statusResult?.content?.[0]?.text || '{}';
         let status: any = {};
         try { status = JSON.parse(statusText); } catch {}
