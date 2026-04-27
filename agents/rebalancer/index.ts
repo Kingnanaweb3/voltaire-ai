@@ -40,7 +40,20 @@ async function fetchPortfolio(): Promise<PortfolioState> {
     usdcAmount = parseFloat(ethers.formatUnits(raw, 6));
   } catch { console.warn('  [step1] USDC read failed — using 0'); }
 
-  const ethPrice      = 3000;
+  // Live ETH price from Chainlink on Base Sepolia
+  let ethPrice = 3000;
+  try {
+    const feed = new ethers.Contract(
+      '0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1', // Chainlink ETH/USD Base Sepolia
+      ['function latestAnswer() view returns (int256)'],
+      provider
+    );
+    const price = await feed.latestAnswer();
+    ethPrice = parseFloat(ethers.formatUnits(price, 8));
+    console.log(`  [step1] ETH price: $${ethPrice.toFixed(2)} (Chainlink)`);
+  } catch {
+    console.warn('  [step1] Price feed failed — using $3000 fallback');
+  }
   const ethUsdValue   = ethAmount * ethPrice;
   const usdcUsdValue  = usdcAmount;
   const totalUsdValue = ethUsdValue + usdcUsdValue;
