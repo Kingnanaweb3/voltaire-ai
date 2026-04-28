@@ -121,6 +121,34 @@ async function runRebalance(): Promise<void> {
     event.portfolioState = portfolio;
     console.log(`  ETH ${(portfolio.currentRatios.ETH * 100).toFixed(1)}% | USDC ${(portfolio.currentRatios.USDC * 100).toFixed(1)}% | Drift ${(portfolio.maxDrift * 100).toFixed(2)}% | $${portfolio.totalUsdValue.toFixed(2)}`);
 
+    // ── Stop-loss check ──────────────────────────────────────────────────
+    const stopLossPrice = parseFloat(process.env.STOP_LOSS_ETH_PRICE || '0');
+    const currentEthPrice = portfolio.balances.find(b => b.symbol === 'ETH')
+      ? portfolio.totalUsdValue / parseFloat(require('ethers').ethers.formatEther(portfolio.balances.find(b => b.symbol === 'ETH')!.amount))
+      : 0;
+    if (stopLossPrice > 0 && currentEthPrice > 0 && currentEthPrice < stopLossPrice) {
+      console.log(`\n⚠ STOP-LOSS TRIGGERED — ETH price $${currentEthPrice.toFixed(2)} below floor $${stopLossPrice}`);
+      console.log(`  Converting all ETH → USDC to protect portfolio`);
+      event.status = 'stop-loss';
+      const ethBalance = portfolio.balances.find(b => b.symbol === 'ETH');
+      if (ethBalance && ethBalance.amount !== '0') {
+        const quote = await router.getQuote({
+          tokenIn: 'ETH', tokenOut: 'USDC',
+          amountIn: ethBalance.amount,
+          walletAddress: portfolio.walletAddress,
+        });
+        const unsignedTx = await router.buildSwap({ quote, walletAddress: portfolio.walletAddress });
+        const executionId = await executor.submit(unsignedTx);
+        const result = await executor.waitForConfirmation(executionId);
+        event.execution = result;
+        event.status = result.success ? 'stop-loss-executed' : 'stop-loss-failed';
+        console.log(result.success ? `\n✓ Stop-loss executed — portfolio protected` : `\n✗ Stop-loss failed: ${result.error}`);
+      }
+      await logMemory.append(event as any);
+      await kvMemory.setLastRun(Date.now());
+      return;
+    }
+
     // ── Step 2: Decide ────────────────────────────────────────────────────
     console.log('\n→ Step 2: Asking brain for decision...');
     const decision = await makeDecision(portfolio);
