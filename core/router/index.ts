@@ -61,6 +61,12 @@ export class UniswapRouter {
 
     const data = res.data;
 
+    const priceImpact = parseFloat(data.quote?.priceImpact || '0');
+    const maxImpact = parseFloat(process.env.MAX_PRICE_IMPACT || '1.0');
+    if (priceImpact > maxImpact) {
+      throw new Error(`[Router] Slippage protection triggered — price impact ${priceImpact}% exceeds max ${maxImpact}%. Swap skipped.`);
+    }
+
     return {
       tokenIn: params.tokenIn,
       tokenOut: params.tokenOut,
