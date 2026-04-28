@@ -9,10 +9,11 @@
 //   npx ts-node examples/agent-swarm/executor.ts
 
 import dotenv from 'dotenv';
-dotenv.config({ path: '../../.env' });
+dotenv.config({ path: require('path').resolve(__dirname, '../../.env') });
 
 import { ethers } from 'ethers';
 import { KVMemory, LogMemory } from '../../core/memory';
+import { readSignal, writeSignal } from './signal-bus';
 import { UniswapRouter } from '../../core/router';
 import { KeeperHubExecutor } from '../../core/executor';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,7 +29,7 @@ const WALLET_ADDRESS   = process.env.AGENT_WALLET_ADDRESS!;
 // ── Poll for signals from Monitor Agent ───────────────────────────────────────
 async function pollAndExecute(): Promise<void> {
   try {
-    const signal = await kvMemory.get('rebalance_signal');
+    const signal = readSignal();
 
     // No signal or already handled
     if (!signal || signal.status !== 'pending') {
@@ -42,7 +43,7 @@ async function pollAndExecute(): Promise<void> {
     console.log(`[Executor] ETH price: $${signal.ethPrice?.toFixed(2)}`);
 
     // ── Mark signal as processing ────────────────────────────────────────────
-    await kvMemory.set('rebalance_signal', { ...signal, status: 'processing', pickedUpAt: Date.now(), pickedUpBy: 'executor-agent' });
+    writeSignal({ ...signal, status: 'processing', pickedUpAt: Date.now(), pickedUpBy: 'executor-agent' });
 
     try {
       // ── Calculate swap amount ──────────────────────────────────────────────
@@ -79,7 +80,7 @@ async function pollAndExecute(): Promise<void> {
       }
 
       // ── Mark signal as completed in 0G Storage ───────────────────────────
-      await kvMemory.set('rebalance_signal', {
+      writeSignal({
         ...signal,
         status:      result.success ? 'completed' : 'failed',
         completedAt: Date.now(),
@@ -113,7 +114,7 @@ async function pollAndExecute(): Promise<void> {
 
     } catch (execErr: any) {
       console.error(`[Executor] Execution error: ${execErr.message}`);
-      await kvMemory.set('rebalance_signal', { ...signal, status: 'failed', error: execErr.message });
+      writeSignal({ ...signal, status: 'failed', error: execErr.message });
     }
 
   } catch (err: any) {

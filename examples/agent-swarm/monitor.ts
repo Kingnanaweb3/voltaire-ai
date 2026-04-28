@@ -9,7 +9,7 @@
 //   npx ts-node examples/agent-swarm/monitor.ts
 
 import dotenv from 'dotenv';
-dotenv.config({ path: '../../.env' });
+dotenv.config({ path: require('path').resolve(__dirname, '../../.env') });
 
 import { ethers } from 'ethers';
 import { KVMemory } from '../../core/memory';
@@ -74,7 +74,7 @@ async function checkDrift(): Promise<void> {
     console.log(`[Monitor] ETH: ${(currentEth * 100).toFixed(1)}% | USDC: ${(currentUsdc * 100).toFixed(1)}% | Drift: ${(drift * 100).toFixed(2)}% | $${total.toFixed(2)}`);
 
     // ── Check if executor is already working ─────────────────────────────────
-    const existingSignal = await kvMemory.get('rebalance_signal');
+    const { readSignal } = require("./signal-bus"); const existingSignal = readSignal();
     if (existingSignal?.status === 'pending') {
       console.log(`[Monitor] Signal already pending — executor is on it. Skipping.`);
       return;
@@ -95,7 +95,7 @@ async function checkDrift(): Promise<void> {
         postedBy:   'monitor-agent',
       };
 
-      await kvMemory.set('rebalance_signal', signal);
+      const { writeSignal } = require("./signal-bus"); writeSignal(signal);
       console.log(`[Monitor] ⚡ Drift ${(drift * 100).toFixed(2)}% exceeds threshold — signal posted to 0G Storage`);
       console.log(`[Monitor] Signal ID: ${checkId} | Action: SWAP ${signal.tokenIn} → ${signal.tokenOut}`);
     } else {
