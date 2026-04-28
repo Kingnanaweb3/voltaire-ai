@@ -84,6 +84,94 @@ app.post('/api/config', async (req, res) => {
   res.json({ success: true, config: updated });
 });
 
+// ─── GET /api/analytics ──────────────────────────────────────────────────────
+app.get('/api/analytics', async (req, res) => {
+  try {
+    const history = await logMemory.getHistory(1000);
+    if (history.length === 0) return res.json({ message: 'No history yet' });
+
+    const executed = history.filter(e => e.status === 'executed');
+    const failed   = history.filter(e => e.status === 'failed');
+    const skipped  = history.filter(e => e.status === 'skipped');
+
+    // ── P&L per rebalance ──────────────────────────────────────────────────
+    const pnl = executed.map(e => {
+      const before = e.portfolioState?.totalUsdValue || 0;
+      const drift  = e.portfolioState?.maxDrift || 0;
+      const savedValue = before * drift * 0.5; // estimated value preserved by rebalancing
+      const gasCost = parseFloat(e.execution?.gasUsed || '0') / 1e18 * 2000;
+      return {
+        id: e.id,
+        date: new Date(e.timestamp).toISOString(),
+        portfolioValueBefore: before.toFixed(2),
+        driftCorrected: (drift * 100).toFixed(2),
+        estimatedValueSaved: savedValue.toFixed(2),
+        gasCost: gasCost.toFixed(4),
+        netPnl: (savedValue - gasCost).toFixed(2),
+        tokenIn: e.decision?.tokenIn,
+        tokenOut: e.decision?.tokenOut,
+      };
+    });
+
+    // ── Frequency analytics ────────────────────────────────────────────────
+    const firstEvent = history[0];
+    const lastEvent  = history[history.length - 1];
+    const daySpan    = Math.max(1, (lastEvent.timestamp - firstEvent.timestamp) / 86400000);
+    const rebalancesPerDay = executed.length / daySpan;
+
+    // ── Drift analytics ────────────────────────────────────────────────────
+    const drifts = history
+      .filter(e => e.portfolioState?.maxDrift)
+      .map(e => e.portfolioState.maxDrift * 100);
+    const avgDrift = drifts.reduce((a, b) => a + b, 0) / (drifts.length || 1);
+    const maxDrift = Math.max(...drifts, 0);
+    const minDrift = Math.min(...drifts, 0);
+
+    // ── Total P&L ──────────────────────────────────────────────────────────
+    const totalEstimatedSaved = pnl.reduce((sum, p) => sum + parseFloat(p.estimatedValueSaved), 0);
+    const totalGasCost        = pnl.reduce((sum, p) => sum + parseFloat(p.gasCost), 0);
+    const totalNetPnl         = totalEstimatedSaved - totalGasCost;
+
+    // ── Best and worst rebalance ───────────────────────────────────────────
+    const sortedPnl = [...pnl].sort((a, b) => parseFloat(b.netPnl) - parseFloat(a.netPnl));
+    const bestRebalance  = sortedPnl[0] || null;
+    const worstRebalance = sortedPnl[sortedPnl.length - 1] || null;
+
+    // ── Portfolio value timeline ───────────────────────────────────────────
+    const timeline = history.map(e => ({
+      date: new Date(e.timestamp).toISOString(),
+      portfolioValue: e.portfolioState?.totalUsdValue?.toFixed(2) || '0',
+      ethRatio: ((e.portfolioState?.currentRatios?.ETH || 0) * 100).toFixed(1),
+      usdcRatio: ((e.portfolioState?.currentRatios?.USDC || 0) * 100).toFixed(1),
+      drift: ((e.portfolioState?.maxDrift || 0) * 100).toFixed(2),
+      status: e.status,
+    }));
+
+    res.json({
+      summary: {
+        totalCycles:        history.length,
+        executed:           executed.length,
+        skipped:            skipped.length,
+        failed:             failed.length,
+        successRate:        ((executed.length / (executed.length + failed.length || 1)) * 100).toFixed(1) + '%',
+        rebalancesPerDay:   rebalancesPerDay.toFixed(2),
+        avgDrift:           avgDrift.toFixed(2) + '%',
+        maxDrift:           maxDrift.toFixed(2) + '%',
+        minDrift:           minDrift.toFixed(2) + '%',
+        totalEstimatedSaved: '$' + totalEstimatedSaved.toFixed(2),
+        totalGasCost:       '$' + totalGasCost.toFixed(4),
+        totalNetPnl:        '$' + totalNetPnl.toFixed(2),
+      },
+      bestRebalance,
+      worstRebalance,
+      pnlHistory: pnl,
+      timeline,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── GET /api/costs ─────────────────────────────────────────────────────────
 app.get('/api/costs', async (req, res) => {
   try {
