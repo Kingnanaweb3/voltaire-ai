@@ -55,6 +55,39 @@ app.post('/api/config', async (req, res) => {
   res.json({ success: true, config: updated });
 });
 
+// ─── POST /api/simulate ──────────────────────────────────────────────────────
+app.post('/api/simulate', async (req, res) => {
+  try {
+    const provider = new (require('ethers').ethers.JsonRpcProvider)(process.env.BASE_SEPOLIA_RPC);
+    const walletAddress = process.env.AGENT_WALLET_ADDRESS!;
+    const ethBalance = await provider.getBalance(walletAddress);
+    const ethAmount = parseFloat(require('ethers').ethers.formatEther(ethBalance));
+    const ethPrice = 2000; // fallback
+    const ethUsdValue = ethAmount * ethPrice;
+    const targetEth = parseFloat(process.env.TARGET_ETH_RATIO || '0.60');
+    const targetUsdc = parseFloat(process.env.TARGET_USDC_RATIO || '0.40');
+    const total = ethUsdValue;
+    const currentEth = total > 0 ? ethUsdValue / total : 0;
+    const drift = Math.abs(currentEth - targetEth);
+    const driftThreshold = parseFloat(process.env.DRIFT_THRESHOLD || '0.05');
+    const wouldRebalance = drift > driftThreshold;
+    const tokenIn = currentEth > targetEth ? 'ETH' : 'USDC';
+    const tokenOut = tokenIn === 'ETH' ? 'USDC' : 'ETH';
+    res.json({
+      simulation: true,
+      wouldRebalance,
+      currentAllocation: { ETH: currentEth * 100, USDC: (1 - currentEth) * 100 },
+      targetAllocation: { ETH: targetEth * 100, USDC: targetUsdc * 100 },
+      drift: drift * 100,
+      driftThreshold: driftThreshold * 100,
+      action: wouldRebalance ? `SWAP ${tokenIn} → ${tokenOut}` : 'NO ACTION',
+      reason: wouldRebalance ? `Drift ${(drift*100).toFixed(2)}% exceeds threshold` : 'Portfolio within target',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function getNextCronRun(cronExp: string): string {
   // Simple implementation — returns "09:00 UTC tomorrow" for daily cron

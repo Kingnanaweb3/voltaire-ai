@@ -106,6 +106,28 @@ async function makeDecision(portfolio: PortfolioState): Promise<SwapDecision> {
 
 // ── Main rebalance cycle ──────────────────────────────────────────────────────
 async function runRebalance(): Promise<void> {
+  // ── Load config from KV memory ──────────────────────────────────────────
+  const savedConfig = await kvMemory.getConfig();
+
+  // ── Emergency pause check ────────────────────────────────────────────────
+  if (savedConfig?.paused) {
+    console.log('\n⏸ Agent is PAUSED — skipping cycle. Unpause via /api/config');
+    return;
+  }
+
+  // ── Cooldown check ───────────────────────────────────────────────────────
+  const cooldownHours = savedConfig?.cooldownHours ?? 0;
+  if (cooldownHours > 0) {
+    const lastRun = await kvMemory.getLastRun();
+    if (lastRun) {
+      const hoursSince = (Date.now() - lastRun) / 3600000;
+      if (hoursSince < cooldownHours) {
+        console.log(`\n⏳ Cooldown active — ${(cooldownHours - hoursSince).toFixed(1)}h remaining. Skipping.`);
+        return;
+      }
+    }
+  }
+
   const runId = uuidv4().slice(0, 8);
   console.log(`\n╔══════════════════════════════════════════╗`);
   console.log(`║  VOLTAIRE — Rebalance Cycle [${runId}]  ║`);
@@ -160,6 +182,22 @@ async function runRebalance(): Promise<void> {
       event.status = 'skipped';
       console.log('\n✓ Portfolio within target — skipping rebalance');
     } else {
+      // ── Gas price check ──────────────────────────────────────────────────
+      const maxGasGwei = savedConfig?.maxGasGwei ?? 0;
+      if (maxGasGwei > 0) {
+        try {
+          const feeData = await new ethers.JsonRpcProvider(process.env.BASE_SEPOLIA_RPC).getFeeData();
+          const gasPriceGwei = parseFloat(ethers.formatUnits(feeData.gasPrice || 0n, 'gwei'));
+          console.log(`  [gas] Current: ${gasPriceGwei.toFixed(2)} gwei | Max: ${maxGasGwei} gwei`);
+          if (gasPriceGwei > maxGasGwei) {
+            console.log(`\n⛽ Gas price too high — skipping rebalance`);
+            event.status = 'skipped';
+            await logMemory.append(event as RebalanceEvent);
+            return;
+          }
+        } catch { console.warn('  [gas] Gas check failed — proceeding anyway'); }
+      }
+
       // ── Step 3: Quote ───────────────────────────────────────────────────
       console.log('\n→ Step 3: Getting Uniswap quote...');
       const quote = await router.getQuote({
