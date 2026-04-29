@@ -175,3 +175,4 @@ vite.config.ts.timestamp-*
 .vite/
 >>>>>>> 618cbafc5f9d7e4a103a22b49ef1c079073ca8b2
 logs/
+data/
