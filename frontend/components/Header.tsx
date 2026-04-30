@@ -1,6 +1,7 @@
 'use client';
 import { T } from '@/lib/tokens';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useTheme } from '@/lib/theme-context';
 
 type WalletMode = 'connected' | 'agent';
 
@@ -21,6 +22,7 @@ export function Header({
   setWalletMode: (m: WalletMode) => void;
   hasConnectedWallet: boolean;
 }) {
+  const { mode, toggle } = useTheme();
   return (
     <header
       style={{
@@ -94,6 +96,28 @@ export function Header({
             🔗 Mine
           </button>
         </div>
+
+        <button
+          onClick={toggle}
+          aria-label="Toggle theme"
+          style={{
+            background: 'transparent',
+            border: `1px solid ${T.border}`,
+            borderRadius: 8,
+            padding: '7px 10px',
+            fontSize: 14,
+            cursor: 'pointer',
+            color: T.textPrimary,
+            transition: 'all 0.15s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 36,
+          }}
+          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {mode === 'dark' ? '☀️' : '🌙'}
+        </button>
 
         <ConnectButton
           accountStatus={{ smallScreen: 'avatar', largeScreen: 'address' }}
