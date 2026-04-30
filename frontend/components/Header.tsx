@@ -2,11 +2,24 @@
 import { T } from '@/lib/tokens';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
-export function Header({ activeNav, status, triggered, onTrigger }: {
+type WalletMode = 'connected' | 'agent';
+
+export function Header({
+  activeNav,
+  status,
+  triggered,
+  onTrigger,
+  walletMode,
+  setWalletMode,
+  hasConnectedWallet,
+}: {
   activeNav: string;
   status: any;
   triggered: boolean;
   onTrigger: () => void;
+  walletMode: WalletMode;
+  setWalletMode: (m: WalletMode) => void;
+  hasConnectedWallet: boolean;
 }) {
   return (
     <header
@@ -30,11 +43,64 @@ export function Header({ activeNav, status, triggered, onTrigger }: {
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            background: T.surface,
+            border: `1px solid ${T.border}`,
+            borderRadius: 10,
+            padding: 3,
+            gap: 2,
+          }}
+        >
+          <button
+            onClick={() => setWalletMode('agent')}
+            style={{
+              background: walletMode === 'agent' ? T.limeDim : 'transparent',
+              color: walletMode === 'agent' ? T.lime : T.textSecondary,
+              border: 'none',
+              borderRadius: 7,
+              padding: '6px 12px',
+              fontSize: 11,
+              fontFamily: T.sans,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+            }}
+            title="View the Voltaire-managed agent's portfolio"
+          >
+            🤖 Agent
+          </button>
+          <button
+            onClick={() => hasConnectedWallet && setWalletMode('connected')}
+            disabled={!hasConnectedWallet}
+            style={{
+              background: walletMode === 'connected' ? T.limeDim : 'transparent',
+              color: walletMode === 'connected' ? T.lime : !hasConnectedWallet ? T.textSecondary + '60' : T.textSecondary,
+              border: 'none',
+              borderRadius: 7,
+              padding: '6px 12px',
+              fontSize: 11,
+              fontFamily: T.sans,
+              fontWeight: 600,
+              cursor: hasConnectedWallet ? 'pointer' : 'not-allowed',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+              opacity: hasConnectedWallet ? 1 : 0.5,
+            }}
+            title={hasConnectedWallet ? 'View your connected wallet' : 'Connect a wallet first'}
+          >
+            🔗 Mine
+          </button>
+        </div>
+
         <ConnectButton
           accountStatus={{ smallScreen: 'avatar', largeScreen: 'address' }}
           chainStatus={{ smallScreen: 'icon', largeScreen: 'full' }}
           showBalance={false}
         />
+
         <button
           onClick={onTrigger}
           style={{

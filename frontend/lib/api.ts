@@ -12,20 +12,24 @@ export async function apiFetch(path: string, opts: RequestInit = {}) {
   }
 }
 
+const addrParam = (a?: string) => a ? '&address=' + a : '';
+const addrFirst = (a?: string) => a ? '?address=' + a : '';
+
 export const api = {
-  status:     () => apiFetch('/api/status'),
-  portfolio: (address?: string) => apiFetch('/api/portfolio' + (address ? '?address=' + address : '')),
-  driftHistory: () => apiFetch('/api/drift-history?limit=20'),
-  history:    (limit = 20) => apiFetch(`/api/history?limit=${limit}`),
-  analytics:  () => apiFetch('/api/analytics'),
-  score:      () => apiFetch('/api/score'),
-  volatility: () => apiFetch('/api/volatility'),
-  health:     () => apiFetch('/api/health'),
-  presets:    () => apiFetch('/api/presets'),
-  config:     () => apiFetch('/api/config'),
-  costs:      () => apiFetch('/api/costs'),
-  trigger:    () => apiFetch('/api/trigger', { method: 'POST' }),
-  simulate:   () => apiFetch('/api/simulate', { method: 'POST' }),
-  saveConfig: (data: any) => apiFetch('/api/config', { method: 'POST', body: JSON.stringify(data) }),
-  testWebhook: () => apiFetch('/api/webhook/test', { method: 'POST' }),
+  status:       () => apiFetch('/api/status'),
+  history: (address?: string, limit = 20) => { const url = `/api/history?limit=${limit}${addrParam(address)}`; console.log("[api.history] URL:", url, "address arg:", address); return apiFetch(url); },
+  analytics:    (address?: string) => apiFetch('/api/analytics' + addrFirst(address)),
+  score:        (address?: string) => apiFetch('/api/score' + addrFirst(address)),
+  volatility:   () => apiFetch('/api/volatility'),
+  health:       () => apiFetch('/api/health'),
+  presets:      () => apiFetch('/api/presets'),
+  config:       () => apiFetch('/api/config'),
+  costs:        () => apiFetch('/api/costs'),
+  trigger:      () => apiFetch('/api/trigger', { method: 'POST' }),
+  simulate:     () => apiFetch('/api/simulate', { method: 'POST' }),
+  saveConfig:   (data: any) => apiFetch('/api/config', { method: 'POST', body: JSON.stringify(data) }),
+  testWebhook:  () => apiFetch('/api/webhook/test', { method: 'POST' }),
+  portfolio:    (address?: string) => apiFetch('/api/portfolio' + addrFirst(address)),
+  driftHistory: (address?: string) => apiFetch('/api/drift-history?limit=20' + addrParam(address)),
 };
+

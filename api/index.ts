@@ -21,8 +21,10 @@ const logMemory = new LogMemory();
 // ─── GET /api/drift-history — real allocation drift over time from SQLite ──
 app.get('/api/drift-history', async (req, res) => {
   try {
+    // /api/drift-history-addr-extracted
+    const addr = (req.query.address as string)?.toLowerCase();
     const limit = parseInt(req.query.limit as string) || 20;
-    const history = await logMemory.getHistory(limit);
+    const history = await logMemory.getHistory(limit, addr);
     const points = history
       .filter((e: any) => e.portfolioState?.currentRatios)
       .map((e: any) => ({
@@ -108,8 +110,9 @@ app.get('/api/status', async (req, res) => {
 
 // ─── GET /api/history ────────────────────────────────────────────────────────
 app.get('/api/history', async (req, res) => {
+  const addr = (req.query.address as string)?.toLowerCase();
   const limit = parseInt(req.query.limit as string || '20');
-  const history = await logMemory.getHistory(limit);
+  const history = await logMemory.getHistory(limit, addr);
   res.json({ history });
 });
 
@@ -167,7 +170,9 @@ app.post('/api/config', async (req, res) => {
 // ─── GET /api/analytics ──────────────────────────────────────────────────────
 app.get('/api/analytics', async (req, res) => {
   try {
-    const history = await logMemory.getHistory(1000);
+    // /api/analytics-addr-extracted
+    const addr = (req.query.address as string)?.toLowerCase();
+    const history = await logMemory.getHistory(1000, addr);
     if (history.length === 0) return res.json({ message: 'No history yet' });
 
     const executed = history.filter(e => e.status === 'executed');
@@ -255,7 +260,8 @@ app.get('/api/analytics', async (req, res) => {
 // ─── GET /api/costs ─────────────────────────────────────────────────────────
 app.get('/api/costs', async (req, res) => {
   try {
-    const history = await logMemory.getHistory(1000);
+    const addr = (req.query.address as string)?.toLowerCase();
+    const history = await logMemory.getHistory(1000, addr);
     const executed = history.filter(e => e.status === 'executed' && e.execution?.gasUsed);
     const totalGasWei = executed.reduce((sum, e) => sum + BigInt(e.execution?.gasUsed || '0'), 0n);
     const totalGasEth = parseFloat(require('ethers').ethers.formatEther(totalGasWei));
@@ -340,7 +346,9 @@ app.get('/api/stream', (req, res) => {
 // ─── GET /api/score ──────────────────────────────────────────────────────────
 app.get('/api/score', async (req, res) => {
   try {
-    const history = await logMemory.getHistory(1000);
+    // /api/score-addr-extracted
+    const addr = (req.query.address as string)?.toLowerCase();
+    const history = await logMemory.getHistory(1000, addr);
     if (history.length === 0) return res.json({ score: 100, grade: 'A', message: 'No rebalances yet' });
 
     const executed   = history.filter(e => e.status === 'executed').length;
@@ -376,7 +384,8 @@ app.get('/api/score', async (req, res) => {
 // ─── GET /api/export/csv ─────────────────────────────────────────────────────
 app.get('/api/export/csv', async (req, res) => {
   try {
-    const history = await logMemory.getHistory(1000);
+    const addr = (req.query.address as string)?.toLowerCase();
+    const history = await logMemory.getHistory(1000, addr);
     const rows = [
       ['ID', 'Date', 'Status', 'Token In', 'Token Out', 'Amount In', 'Amount Out', 'Price Impact', 'TX Hash', 'Gas Used', 'Audit URL'].join(','),
       ...history.map(e => [

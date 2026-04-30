@@ -1,11 +1,13 @@
 // ─── Voltaire AI — Memory Module (0G Storage + SQLite cache) ────────────────
 // 0G Storage = immutable audit trail (writes async, append-only).
 // SQLite     = local mirror for fast cross-process reads (API + agent share).
-import { Indexer, MemData } from '@0gfoundation/0g-ts-sdk';
+import {
+  Indexer, MemData } from '@0gfoundation/0g-ts-sdk';
 import { ethers } from 'ethers';
 import { RebalanceEvent, AgentConfig } from '../types';
 import {
   addRebalance,
+  getRebalancesByAddress,
   getRebalances,
   setState as dbSetState,
   getState as dbGetState,
@@ -95,6 +97,7 @@ export class LogMemory {
         total_usd_value: port.totalUsdValue ?? undefined,
         max_drift: port.maxDrift ?? undefined,
         portfolio_state: port && Object.keys(port).length > 0 ? JSON.stringify(port) : undefined,
+        user_address: (process.env.AGENT_WALLET_ADDRESS || '').toLowerCase(),
       });
     } catch (err) {
       console.warn('[LogMemory] SQLite write failed:', err);
@@ -117,8 +120,8 @@ export class LogMemory {
     console.log(`[LogMemory] Event stored on 0G — tx: ${JSON.stringify(tx)}`);
   }
 
-  async getHistory(limit = 20): Promise<RebalanceEvent[]> {
-    const rows = getRebalances(limit);
+  async getHistory(limit = 100, userAddress?: string): Promise<RebalanceEvent[]> {
+    const rows = getRebalancesByAddress(userAddress, limit);
     return rows
       .slice()
       .reverse()

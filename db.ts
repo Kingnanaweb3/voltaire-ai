@@ -62,17 +62,18 @@ export type Rebalance = {
   total_usd_value?: number;
   max_drift?: number;
   portfolio_state?: string;
+  user_address?: string;
 };
 
 const insertRebalanceStmt = db.prepare(`
   INSERT INTO rebalances
-  (timestamp, from_asset, to_asset, from_amount, to_amount, eth_price, gas_cost_usd, tx_hash, reasoning, status, trigger_type, total_usd_value, max_drift, portfolio_state)
-  VALUES (@timestamp, @from_asset, @to_asset, @from_amount, @to_amount, @eth_price, @gas_cost_usd, @tx_hash, @reasoning, @status, @trigger_type, @total_usd_value, @max_drift, @portfolio_state)
+  (timestamp, from_asset, to_asset, from_amount, to_amount, eth_price, gas_cost_usd, tx_hash, reasoning, status, trigger_type, total_usd_value, max_drift, portfolio_state, user_address)
+  VALUES (@timestamp, @from_asset, @to_asset, @from_amount, @to_amount, @eth_price, @gas_cost_usd, @tx_hash, @reasoning, @status, @trigger_type, @total_usd_value, @max_drift, @portfolio_state, @user_address)
 `);
 
 export function addRebalance(r: Rebalance): number {
   const info = insertRebalanceStmt.run({
-    eth_price: null, gas_cost_usd: null, tx_hash: null, reasoning: null, trigger_type: null, total_usd_value: null, max_drift: null, portfolio_state: null,
+    eth_price: null, gas_cost_usd: null, tx_hash: null, reasoning: null, trigger_type: null, total_usd_value: null, max_drift: null, portfolio_state: null, user_address: null,
     ...r,
   });
   return Number(info.lastInsertRowid);
@@ -80,6 +81,11 @@ export function addRebalance(r: Rebalance): number {
 
 export function getRebalances(limit = 100): Rebalance[] {
   return db.prepare(`SELECT * FROM rebalances ORDER BY timestamp DESC LIMIT ?`).all(limit) as Rebalance[];
+}
+
+export function getRebalancesByAddress(address: string | undefined, limit = 100): Rebalance[] {
+  if (!address) return getRebalances(limit);
+  return db.prepare(`SELECT * FROM rebalances WHERE lower(user_address) = lower(?) ORDER BY timestamp DESC LIMIT ?`).all(address, limit) as Rebalance[];
 }
 
 export function getLastRebalance(): Rebalance | undefined {

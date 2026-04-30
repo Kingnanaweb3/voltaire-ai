@@ -15,12 +15,32 @@ export default function Home() {
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [data, setData] = useState<any>({});
   const { address: connectedAddress } = useAccount();
+  const [walletMode, setWalletMode] = useState<'connected' | 'agent'>('agent');
+
+  // Auto-switch to connected mode when user connects, agent mode when they disconnect
+  useEffect(() => {
+    if (connectedAddress) {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('voltaire:walletMode') : null;
+      setWalletMode((saved === 'agent' || saved === 'connected') ? saved : 'connected');
+    } else {
+      setWalletMode('agent');
+    }
+  }, [connectedAddress]);
+
+  // Persist mode changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('voltaire:walletMode', walletMode);
+  }, [walletMode]);
+
+  // Address that flows through every API call
+  const effectiveAddress = walletMode === 'connected' ? connectedAddress : undefined;
+  console.log('[Voltaire Debug]', { walletMode, connectedAddress, effectiveAddress });
   const [triggered, setTriggered] = useState(false);
   const [simResult, setSimResult] = useState<any>(null);
 
   const loadData = useCallback(async () => {
     const [status, histRes, analytics, score, portfolio, driftHistory, volatility, health, presetsRes, configRes, costs] = await Promise.all([
-      api.status(), api.history(), api.analytics(), api.score(), api.portfolio(connectedAddress), api.driftHistory(),
+      api.status(), api.history(effectiveAddress), api.analytics(effectiveAddress), api.score(effectiveAddress), api.portfolio(effectiveAddress), api.driftHistory(effectiveAddress),
       api.volatility(), api.health(), api.presets(), api.config(), api.costs(),
     ]);
     setData({
@@ -36,7 +56,7 @@ export default function Home() {
       config: configRes?.config || null,
       costs,
     });
-  }, [connectedAddress]);
+  }, [effectiveAddress]);
 
   useEffect(() => {
     loadData();
@@ -64,7 +84,7 @@ export default function Home() {
     <div style={{ display: 'flex', minHeight: '100vh', background: T.bg, color: T.textPrimary, fontFamily: T.sans }}>
       <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} status={data.status} />
       <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
-        <Header activeNav={activeNav} status={data.status} triggered={triggered} onTrigger={handleTrigger} />
+        <Header activeNav={activeNav} status={data.status} triggered={triggered} onTrigger={handleTrigger} walletMode={walletMode} setWalletMode={setWalletMode} hasConnectedWallet={!!connectedAddress} />
         {activeNav === 'Dashboard' && <DashboardPage data={data} onSimulate={handleSimulate} simResult={simResult} />}
         {activeNav === 'Portfolio' && <PortfolioPage data={data} />}
         {activeNav === 'History' && <HistoryPage data={data} />}
