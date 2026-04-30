@@ -38,7 +38,7 @@ async function fetchPortfolio(savedConfig?: any): Promise<PortfolioState> {
   try {
     const raw  = await usdcContract.balanceOf(walletAddress);
     usdcAmount = parseFloat(ethers.formatUnits(raw, 6));
-  } catch { console.warn('  [step1] USDC read failed — using 0'); }
+  } catch (e: any) { console.warn('  [step1] USDC read failed:', e?.message?.slice(0,200) || String(e)); }
 
   // Live ETH price from Chainlink on Base Sepolia
   let ethPrice = 3000;
