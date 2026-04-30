@@ -11,7 +11,6 @@ import {
   getState as dbGetState,
 } from '../../db';
 
-// ─── Shared 0G connection ────────────────────────────────────────────────────
 function getConnection() {
   const rpcUrl = process.env.OG_RPC_URL || 'https://evmrpc-testnet.0g.ai';
   const indexerUrl = process.env.OG_INDEXER_URL || 'https://indexer-storage-testnet-turbo.0g.ai';
@@ -28,7 +27,6 @@ export interface IMemory {
   set(key: string, value: any): Promise<void>;
 }
 
-// ─── KV Memory — mutable state (SQLite local + 0G async backup) ─────────────
 export class KVMemory implements IMemory {
   async get(key: string): Promise<any> {
     const v = dbGetState<any>(key);
@@ -58,7 +56,6 @@ export class KVMemory implements IMemory {
   async setLastRun(timestamp: number): Promise<void> { return this.set('agent:last_run', timestamp); }
 }
 
-// ─── Log Memory — append-only history (SQLite local + 0G async backup) ──────
 export class LogMemory {
   async append(event: RebalanceEvent): Promise<void> {
     try {
@@ -67,7 +64,6 @@ export class LogMemory {
       const exec = ev.execution ?? {};
       const port = ev.portfolioState ?? {};
 
-      // Map 6-state status to SQLite's 3-state
       const statusMap: Record<string, 'success' | 'failed' | 'skipped'> = {
         'executed': 'success',
         'stop-loss-executed': 'success',
@@ -77,7 +73,6 @@ export class LogMemory {
         'stop-loss': 'skipped',
       };
 
-      // Derive ETH price from portfolio if present
       let ethPrice: number | undefined;
       const ethBal = port.balances?.find((b: any) => b.symbol === 'ETH');
       if (ethBal?.usdValue && ethBal?.amount) {
@@ -86,17 +81,20 @@ export class LogMemory {
       }
 
       addRebalance({
-        timestamp:    ev.timestamp ?? Date.now(),
-        from_asset:   dec.tokenIn  ?? '',
-        to_asset:     dec.tokenOut ?? '',
-        from_amount:  Number(dec.amountIn  ?? 0),
-        to_amount:    Number(ev.quote?.amountOut ?? 0),
-        eth_price:    ethPrice ?? undefined,
+        timestamp: ev.timestamp ?? Date.now(),
+        from_asset: dec.tokenIn ?? '',
+        to_asset: dec.tokenOut ?? '',
+        from_amount: Number(dec.amountIn ?? 0),
+        to_amount: Number(ev.quote?.amountOut ?? 0),
+        eth_price: ethPrice ?? undefined,
         gas_cost_usd: exec.gasUsedUsd ?? exec.gasCostUsd ?? undefined,
-        tx_hash:      exec.txHash ?? undefined,
-        reasoning:    dec.reasoning ?? '',
-        status:       statusMap[ev.status] ?? 'failed',
+        tx_hash: exec.txHash ?? undefined,
+        reasoning: dec.reasoning ?? '',
+        status: statusMap[ev.status] ?? 'failed',
         trigger_type: dec.triggerType ?? undefined,
+        total_usd_value: port.totalUsdValue ?? undefined,
+        max_drift: port.maxDrift ?? undefined,
+        portfolio_state: port && Object.keys(port).length > 0 ? JSON.stringify(port) : undefined,
       });
     } catch (err) {
       console.warn('[LogMemory] SQLite write failed:', err);
@@ -121,18 +119,51 @@ export class LogMemory {
 
   async getHistory(limit = 20): Promise<RebalanceEvent[]> {
     const rows = getRebalances(limit);
-    return rows.map(r => ({
-      id: String(r.id),
-      timestamp: r.timestamp,
-      fromAsset: r.from_asset,
-      toAsset: r.to_asset,
-      fromAmount: r.from_amount,
-      toAmount: r.to_amount,
-      ethPrice: r.eth_price,
-      reasoning: r.reasoning,
-      status: r.status === 'success' ? 'executed' : r.status,
-      triggerType: r.trigger_type,
-      execution: r.tx_hash ? { txHash: r.tx_hash, gasUsedUsd: r.gas_cost_usd } : undefined,
-    })) as unknown as RebalanceEvent[];
+    return rows
+      .slice()
+      .reverse()
+      .map(r => ({
+        id: String(r.id),
+        timestamp: r.timestamp,
+        status: r.status === 'success' ? 'executed' : r.status,
+        decision: {
+          tokenIn: r.from_asset,
+          tokenOut: r.to_asset,
+          amountIn: String(r.from_amount),
+          amountOut: String(r.to_amount),
+          reasoning: r.reasoning,
+          shouldSwap: r.status === 'success',
+        },
+        quote: { amountOut: String(r.to_amount) },
+        execution: r.tx_hash ? { txHash: r.tx_hash, gasUsedUsd: r.gas_cost_usd } : undefined,
+        portfolioState: (() => {
+          const raw = (r as any).portfolio_state;
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              return {
+                totalUsdValue: parsed.totalUsdValue ?? (r as any).total_usd_value ?? 0,
+                maxDrift: parsed.maxDrift ?? (r as any).max_drift ?? 0,
+                balances: parsed.balances ?? [],
+                currentRatios: parsed.currentRatios ?? {},
+                targetRatios: parsed.targetRatios ?? {},
+                driftAmounts: parsed.driftAmounts ?? {},
+                walletAddress: parsed.walletAddress ?? '',
+                timestamp: parsed.timestamp ?? r.timestamp,
+              };
+            } catch { /* fall through */ }
+          }
+          return {
+            totalUsdValue: (r as any).total_usd_value ?? 0,
+            maxDrift: (r as any).max_drift ?? 0,
+            balances: [],
+            currentRatios: {},
+            targetRatios: {},
+            driftAmounts: {},
+            walletAddress: '',
+            timestamp: r.timestamp,
+          };
+        })(),
+      })) as unknown as RebalanceEvent[];
   }
 }

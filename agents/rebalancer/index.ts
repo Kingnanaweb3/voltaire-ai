@@ -21,12 +21,12 @@ const router    = new UniswapRouter();
 const executor  = new KeeperHubExecutor();
 
 // ── Step 1: Fetch balances ────────────────────────────────────────────────────
-async function fetchPortfolio(): Promise<PortfolioState> {
+async function fetchPortfolio(savedConfig?: any): Promise<PortfolioState> {
   const provider = new ethers.JsonRpcProvider(process.env.BASE_SEPOLIA_RPC);
   const walletAddress = process.env.AGENT_WALLET_ADDRESS!;
-  const targetRatios = {
-    ETH:  parseFloat(process.env.TARGET_ETH_RATIO  || '0.60'),
-    USDC: parseFloat(process.env.TARGET_USDC_RATIO || '0.40'),
+  const targetRatios = savedConfig?.targetRatios ?? {
+    ETH:  parseFloat(process.env.TARGET_ETH_RATIO  || "0.60"),
+    USDC: parseFloat(process.env.TARGET_USDC_RATIO || "0.40"),
   };
 
   const ethBalance = await provider.getBalance(walletAddress);
@@ -81,12 +81,12 @@ async function fetchPortfolio(): Promise<PortfolioState> {
 }
 
 // ── Step 2: Decide ────────────────────────────────────────────────────────────
-async function makeDecision(portfolio: PortfolioState): Promise<SwapDecision> {
+async function makeDecision(portfolio: PortfolioState, savedConfig?: any): Promise<SwapDecision> {
   try {
     return await brain.decide(portfolio);
   } catch {
     console.warn('  [step2] Brain unavailable — threshold fallback');
-    const threshold = parseFloat(process.env.DRIFT_THRESHOLD || '0.05');
+    const threshold = savedConfig?.driftThreshold ?? parseFloat(process.env.DRIFT_THRESHOLD || "0.05");
     const shouldSwap = portfolio.maxDrift > threshold;
     const overEntry  = Object.entries(portfolio.driftAmounts).find(([, d]) => d > 0);
     const tokenIn    = overEntry?.[0] || 'ETH';
@@ -111,7 +111,7 @@ async function runRebalance(): Promise<void> {
 
   // ── Emergency pause check ────────────────────────────────────────────────
   if (savedConfig?.paused) {
-    console.log('\n⏸ Agent is PAUSED — skipping cycle. Unpause via /api/config');
+    console.log("\n⏸ Agent is PAUSED — skipping cycle. Unpause via /api/config");
     return;
   }
 
@@ -139,12 +139,12 @@ async function runRebalance(): Promise<void> {
   try {
     // ── Step 1: Fetch ─────────────────────────────────────────────────────
     console.log('→ Step 1: Fetching portfolio state...');
-    const portfolio = await fetchPortfolio();
+    const portfolio = await fetchPortfolio(savedConfig);
     event.portfolioState = portfolio;
     console.log(`  ETH ${(portfolio.currentRatios.ETH * 100).toFixed(1)}% | USDC ${(portfolio.currentRatios.USDC * 100).toFixed(1)}% | Drift ${(portfolio.maxDrift * 100).toFixed(2)}% | $${portfolio.totalUsdValue.toFixed(2)}`);
 
     // ── Stop-loss check ──────────────────────────────────────────────────
-    const stopLossPrice = parseFloat(process.env.STOP_LOSS_ETH_PRICE || '0');
+    const stopLossPrice = savedConfig?.stopLossPrice ?? parseFloat(process.env.STOP_LOSS_ETH_PRICE || "0");
     const currentEthPrice = portfolio.balances.find(b => b.symbol === 'ETH')
       ? portfolio.totalUsdValue / parseFloat(require('ethers').ethers.formatEther(portfolio.balances.find(b => b.symbol === 'ETH')!.amount))
       : 0;
@@ -173,7 +173,7 @@ async function runRebalance(): Promise<void> {
 
     // ── Step 2: Decide ────────────────────────────────────────────────────
     console.log('\n→ Step 2: Asking brain for decision...');
-    const decision = await makeDecision(portfolio);
+    const decision = await makeDecision(portfolio, savedConfig);
     event.decision = decision;
     console.log(`  Decision: ${decision.shouldSwap ? `SWAP ${decision.tokenIn} → ${decision.tokenOut}` : 'NO ACTION'}`);
     console.log(`  Reasoning: ${decision.reasoning}`);

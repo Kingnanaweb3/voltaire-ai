@@ -171,10 +171,43 @@ export class KeeperHubExecutor {
           const logsText = logsResult?.content?.[0]?.text || '[]';
           let logs: any[] = [];
           try { logs = JSON.parse(logsText); } catch {}
-          const txHash = logs.find((l: any) => l.txHash)?.txHash;
+          console.log('[KeeperHub] Raw logs response:', JSON.stringify(logs, null, 2).slice(0, 2000));
+          // Try multiple possible field names
+          let txHash: string | undefined;
+          for (const log of logs) {
+            txHash = log.txHash || log.tx_hash || log.transactionHash || log.transaction_hash || log.hash || log.data?.txHash || log.data?.transaction_hash || log.result?.txHash || log.result?.transactionHash;
+            if (txHash) break;
+          }
+          // Also check the status response itself
+          if (!txHash) {
+            txHash = status?.txHash || status?.tx_hash || status?.transactionHash || status?.transaction_hash || status?.result?.txHash || status?.result?.transactionHash;
+          }
+          console.log('[KeeperHub] Extracted txHash:', txHash || 'NONE');
+
+          // ── Fetch real gas cost from on-chain receipt ──────────────────
+          let gasUsed: string | undefined;
+          let gasCostUsd: number | undefined;
+          if (txHash) {
+            try {
+              const receipt = await this.provider.getTransactionReceipt(txHash);
+              if (receipt) {
+                const gasUsedBig = receipt.gasUsed;
+                const gasPriceBig = receipt.gasPrice || BigInt(0);
+                const ethCost = Number(gasUsedBig * gasPriceBig) / 1e18;
+                gasUsed = gasUsedBig.toString();
+                // Use $2300 ETH for now — could pull Chainlink here for precision
+                gasCostUsd = ethCost * 2300;
+                console.log(`[KeeperHub] Gas: ${gasUsed} units × ${gasPriceBig} wei = ${gasCostUsd.toFixed(4)}`);
+              }
+            } catch (e: any) {
+              console.warn('[KeeperHub] Receipt fetch failed:', e.message);
+            }
+          }
           return {
             success: true,
             txHash,
+            gasUsed,
+            gasCostUsd,
             jobId: executionId,
             retryCount,
             confirmedAt: Date.now(),

@@ -54,6 +54,7 @@ export interface ExecutionResult {
   txHash?: string;
   jobId: string;
   gasUsed?: string;
+  gasCostUsd?: number;
   retryCount: number;
   confirmedAt?: number;
   error?: string;
@@ -67,7 +68,7 @@ export interface RebalanceEvent {
   decision: SwapDecision;
   quote?: QuoteResult;
   execution?: ExecutionResult;
-  status: 'skipped' | 'executed' | 'failed';
+  status: 'skipped' | 'executed' | 'failed' | 'stop-loss' | 'stop-loss-executed' | 'stop-loss-failed';
 }
 
 export type TriggerType = 'drift' | 'price_drop' | 'price_floor' | 'time_based';

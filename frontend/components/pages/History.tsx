@@ -1,0 +1,133 @@
+'use client';
+import { T } from '@/lib/tokens';
+import { Card } from '@/components/Card';
+import { Badge } from '@/components/Badge';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+export function HistoryPage({ data }: { data: any }) {
+  const { history = [] } = data;
+
+  const shortHash = (h: string) => `${h.slice(0, 6)}…${h.slice(-4)}`;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Card>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, color: T.textPrimary }}>Full Rebalance History</div>
+            <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
+              All on-chain · click TX to view on Base Sepolia explorer
+            </div>
+          </div>
+          <a
+            href={`${API_BASE}/api/export/csv`}
+            style={{
+              background: T.limeDim,
+              border: `1px solid ${T.borderAccent}`,
+              borderRadius: 8,
+              padding: '6px 14px',
+              fontSize: 11,
+              color: T.lime,
+              textDecoration: 'none',
+            }}
+          >
+            ↓ Download CSV
+          </a>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+            <thead>
+              <tr>
+                {['Date', 'Action', 'In', 'Out', 'Drift', 'Gas (USD)', 'TX', 'Status'].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: 'left',
+                      fontSize: 10,
+                      color: T.textSecondary,
+                      padding: '0 0 12px',
+                      fontWeight: 500,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {history.slice().reverse().map((row: any, i: number) => {
+                const txHash = row.execution?.txHash;
+                const gasUsd = row.execution?.gasUsedUsd ?? row.execution?.gasCostUsd;
+                return (
+                  <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ padding: '12px 0', fontSize: 12, color: T.textSecondary, fontFamily: T.mono }}>
+                      {new Date(row.timestamp).toLocaleString('en', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, color: T.textPrimary }}>
+                      {row.status === 'skipped' ? 'No action' : 'Swap'}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono, color: T.lime }}>
+                      {row.decision?.tokenIn || '—'}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono, color: T.blue }}>
+                      {row.decision?.tokenOut || '—'}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono, color: T.textSecondary }}>
+                      {row.portfolioState?.maxDrift
+                        ? `${(row.portfolioState.maxDrift * 100).toFixed(2)}%`
+                        : '—'}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono, color: T.amber }}>
+                      {gasUsd != null ? `$${Number(gasUsd).toFixed(4)}` : '—'}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono }}>
+                      {txHash ? (
+                        <a
+                          href={`https://sepolia.basescan.org/tx/${txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: T.lime,
+                            textDecoration: 'none',
+                            borderBottom: `1px dashed ${T.lime}`,
+                            paddingBottom: 1,
+                          }}
+                          title={txHash}
+                        >
+                          {shortHash(txHash)} ↗
+                        </a>
+                      ) : (
+                        <span style={{ color: T.textSecondary }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 0' }}>
+                      <Badge status={row.status} />
+                    </td>
+                  </tr>
+                );
+              })}
+              {history.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={8}
+                    style={{ padding: '24px 0', color: T.textSecondary, fontSize: 12, textAlign: 'center' }}
+                  >
+                    No history yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}

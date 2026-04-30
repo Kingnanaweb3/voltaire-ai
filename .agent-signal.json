@@ -1,0 +1,15 @@
+{
+  "id": "96cf76e3",
+  "timestamp": 1777443009360,
+  "status": "completed",
+  "drift": 0.4,
+  "currentEth": 1,
+  "currentUsdc": 0,
+  "ethPrice": 2331.82941,
+  "totalUsd": 100.08134685561473,
+  "tokenIn": "ETH",
+  "tokenOut": "USDC",
+  "postedBy": "monitor-agent",
+  "completedAt": 1777443027608,
+  "executionId": "6q3q6w0j4k3olb6j2327a"
+}

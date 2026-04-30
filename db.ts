@@ -43,6 +43,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_log_ts ON agent_log(timestamp DESC);
 `);
 
+// Migrations — safe to re-run
+try { db.exec('ALTER TABLE rebalances ADD COLUMN portfolio_state TEXT'); } catch { /* already exists */ }
+
 export type Rebalance = {
   id?: number;
   timestamp: number;
@@ -56,17 +59,20 @@ export type Rebalance = {
   reasoning?: string;
   status: 'success' | 'skipped' | 'failed';
   trigger_type?: string;
+  total_usd_value?: number;
+  max_drift?: number;
+  portfolio_state?: string;
 };
 
 const insertRebalanceStmt = db.prepare(`
   INSERT INTO rebalances
-  (timestamp, from_asset, to_asset, from_amount, to_amount, eth_price, gas_cost_usd, tx_hash, reasoning, status, trigger_type)
-  VALUES (@timestamp, @from_asset, @to_asset, @from_amount, @to_amount, @eth_price, @gas_cost_usd, @tx_hash, @reasoning, @status, @trigger_type)
+  (timestamp, from_asset, to_asset, from_amount, to_amount, eth_price, gas_cost_usd, tx_hash, reasoning, status, trigger_type, total_usd_value, max_drift, portfolio_state)
+  VALUES (@timestamp, @from_asset, @to_asset, @from_amount, @to_amount, @eth_price, @gas_cost_usd, @tx_hash, @reasoning, @status, @trigger_type, @total_usd_value, @max_drift, @portfolio_state)
 `);
 
 export function addRebalance(r: Rebalance): number {
   const info = insertRebalanceStmt.run({
-    eth_price: null, gas_cost_usd: null, tx_hash: null, reasoning: null, trigger_type: null,
+    eth_price: null, gas_cost_usd: null, tx_hash: null, reasoning: null, trigger_type: null, total_usd_value: null, max_drift: null, portfolio_state: null,
     ...r,
   });
   return Number(info.lastInsertRowid);
