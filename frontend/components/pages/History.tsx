@@ -5,7 +5,7 @@ import { Badge } from '@/components/Badge';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export function HistoryPage({ data }: { data: any }) {
+export function HistoryPage({ data, walletMode, setWalletMode }: { data: any; walletMode: 'connected' | 'agent'; setWalletMode: (m: 'connected' | 'agent') => void }) {
   const { history = [] } = data;
 
   const shortHash = (h: string) => `${h.slice(0, 6)}…${h.slice(-4)}`;
@@ -115,14 +115,17 @@ export function HistoryPage({ data }: { data: any }) {
                 );
               })}
               {history.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    style={{ padding: '24px 0', color: T.textSecondary, fontSize: 12, textAlign: 'center' }}
-                  >
-                    No history yet
-                  </td>
-                </tr>
+                <tr><td colSpan={8} style={{ padding: '40px 0', textAlign: 'center' }}>
+                  {walletMode === 'connected' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                      <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>🤖 Your wallet isn't managed by Voltaire yet</div>
+                      <div style={{ fontSize: 12, color: T.textSecondary, maxWidth: 380 }}>Voltaire is an autonomous rebalancing agent. Connect this wallet to the agent to enable automated portfolio management, or explore the live demo running on the agent's wallet.</div>
+                      <button onClick={() => setWalletMode('agent')} style={{ marginTop: 6, background: T.limeDim, color: T.lime, border: `1px solid ${T.lime}40`, borderRadius: 8, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>View Agent Demo →</button>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: T.textSecondary }}>No history yet</div>
+                  )}
+                </td></tr>
               )}
             </tbody>
           </table>

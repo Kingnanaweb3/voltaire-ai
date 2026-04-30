@@ -9,10 +9,12 @@ import { Countdown } from '@/components/Countdown';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
-export function DashboardPage({ data, onSimulate, simResult }: {
+export function DashboardPage({ data, onSimulate, simResult, walletMode, setWalletMode }: {
   data: any;
   onSimulate: () => void;
   simResult: any;
+  walletMode: 'connected' | 'agent';
+  setWalletMode: (m: 'connected' | 'agent') => void;
 }) {
   const { status, history = [], analytics } = data;
   const lastEvent = history[history.length - 1];
@@ -163,7 +165,17 @@ export function DashboardPage({ data, onSimulate, simResult }: {
                   </tr>
                 ))}
                 {history.length === 0 && (
-                  <tr><td colSpan={4} style={{ padding: '24px 0', color: T.textSecondary, fontSize: 12, textAlign: 'center' }}>No rebalances yet</td></tr>
+                  <tr><td colSpan={4} style={{ padding: '32px 0', textAlign: 'center' }}>
+                    {walletMode === 'connected' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                        <div style={{ fontSize: 13, color: T.textPrimary, fontWeight: 600 }}>🤖 Your wallet isn't managed by Voltaire yet</div>
+                        <div style={{ fontSize: 11, color: T.textSecondary, maxWidth: 320 }}>Connect this wallet to the agent to enable autonomous rebalancing, or view the live demo.</div>
+                        <button onClick={() => setWalletMode('agent')} style={{ marginTop: 4, background: T.limeDim, color: T.lime, border: `1px solid ${T.lime}40`, borderRadius: 8, padding: '6px 14px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>View Agent Demo →</button>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: T.textSecondary }}>No rebalances yet — click Rebalance Now to start</div>
+                    )}
+                  </td></tr>
                 )}
               </tbody>
             </table>

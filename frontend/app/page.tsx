@@ -85,9 +85,9 @@ export default function Home() {
       <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} status={data.status} />
       <main style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
         <Header activeNav={activeNav} status={data.status} triggered={triggered} onTrigger={handleTrigger} walletMode={walletMode} setWalletMode={setWalletMode} hasConnectedWallet={!!connectedAddress} />
-        {activeNav === 'Dashboard' && <DashboardPage data={data} onSimulate={handleSimulate} simResult={simResult} />}
+        {activeNav === 'Dashboard' && <DashboardPage data={data} walletMode={walletMode} setWalletMode={setWalletMode} onSimulate={handleSimulate} simResult={simResult} />}
         {activeNav === 'Portfolio' && <PortfolioPage data={data} />}
-        {activeNav === 'History' && <HistoryPage data={data} />}
+        {activeNav === 'History' && <HistoryPage data={data} walletMode={walletMode} setWalletMode={setWalletMode} />}
         {activeNav === 'Config' && <ConfigPage data={data} onSave={handleSaveConfig} />}
         {activeNav === 'Agent Log' && <AgentLogPage data={data} />}
       </main>

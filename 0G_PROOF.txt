@@ -1,0 +1,5 @@
+0G Storage tx: 0x932760c3b767c68972eed2aca7db70f088ab2c24bbe6852c9fad4a5ffc4aaff8
+Root hash: 0x6b65a00c13b1051c10772e026d7e5e90631bc6791cdf2cbf74acd3c33a5455cf
+txSeq: 60200
+Network: 0G Galileo (chainId 16602)
+Date: Thu Apr 30 14:27:14 WAT 2026
