@@ -9,6 +9,7 @@ import { DashboardPage } from '@/components/pages/Dashboard';
 import { PortfolioPage } from '@/components/pages/Portfolio';
 import { HistoryPage } from '@/components/pages/History';
 import { ConfigPage } from '@/components/pages/Config';
+import { SwarmPage } from '@/components/pages/Swarm';
 import { AgentLogPage } from '@/components/pages/AgentLog';
 
 export default function Home() {
@@ -90,6 +91,7 @@ export default function Home() {
         {activeNav === 'History' && <HistoryPage data={data} walletMode={walletMode} setWalletMode={setWalletMode} />}
         {activeNav === 'Config' && <ConfigPage data={data} onSave={handleSaveConfig} />}
         {activeNav === 'Agent Log' && <AgentLogPage data={data} />}
+        {activeNav === 'Swarm' && <SwarmPage />}
       </main>
     </div>
   );

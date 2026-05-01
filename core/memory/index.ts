@@ -37,19 +37,37 @@ export class KVMemory implements IMemory {
 
   async set(key: string, value: any): Promise<void> {
     dbSetState(key, value);
+
+    // For swarm signal logs, await the 0G upload so we can attach txSeq
+    if (key.startsWith('swarm:signals:') && Array.isArray(value) && value.length > 0) {
+      try {
+        const tx: any = await this.backupTo0G(key, value);
+        const seq = tx?.seq ?? tx?.txSeq ?? (tx ? String(tx) : null);
+        if (seq) {
+          value[value.length - 1].txSeq = String(seq);
+          dbSetState(key, value);
+        }
+      } catch (err: any) {
+        console.warn(`[KVMemory] 0G backup (signal) failed for "${key}":`, err?.message ?? err);
+      }
+      return;
+    }
+
+    // Fire-and-forget for non-signal keys
     this.backupTo0G(key, value).catch(err =>
       console.warn(`[KVMemory] 0G backup failed for "${key}":`, err?.message ?? err)
     );
   }
 
-  private async backupTo0G(key: string, value: any): Promise<void> {
+  private async backupTo0G(key: string, value: any): Promise<any> {
     const { indexer, signer, rpcUrl } = getConnection();
     const encoded = new TextEncoder().encode(JSON.stringify({ key, value, ts: Date.now() }));
     const memData = new MemData(encoded);
     const [, treeErr] = await memData.merkleTree();
     if (treeErr) throw new Error(`Merkle tree error: ${treeErr}`);
-    const [, uploadErr] = await indexer.upload(memData, rpcUrl, signer);
+    const [tx, uploadErr] = await indexer.upload(memData, rpcUrl, signer);
     if (uploadErr) throw new Error(`Upload error: ${uploadErr}`);
+    return tx;
   }
 
   async getConfig(): Promise<AgentConfig | null> { return this.get('agent:config'); }

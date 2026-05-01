@@ -8,6 +8,7 @@ const NAV = [
   { icon: '⟳', label: 'History' },
   { icon: '⚙', label: 'Config' },
   { icon: '▣', label: 'Agent Log' },
+  { icon: '⬡', label: 'Swarm' },
 ];
 
 export function Sidebar({ activeNav, setActiveNav, status }: {

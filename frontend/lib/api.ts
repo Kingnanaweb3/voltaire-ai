@@ -31,5 +31,6 @@ export const api = {
   testWebhook:  () => apiFetch('/api/webhook/test', { method: 'POST' }),
   portfolio:    (address?: string) => apiFetch('/api/portfolio' + addrFirst(address)),
   driftHistory: (address?: string) => apiFetch('/api/drift-history?limit=20' + addrParam(address)),
+  swarmState:   () => apiFetch('/api/swarm/state'),
+  swarmTrigger: () => apiFetch('/api/swarm/trigger', { method: 'POST' }),
 };
-
