@@ -98,6 +98,9 @@ export class LogMemory {
         max_drift: port.maxDrift ?? undefined,
         portfolio_state: port && Object.keys(port).length > 0 ? JSON.stringify(port) : undefined,
         user_address: (process.env.AGENT_WALLET_ADDRESS || '').toLowerCase(),
+        audit_url: exec.auditUrl ?? undefined,
+        job_id: exec.jobId ?? undefined,
+        retry_count: exec.retryCount ?? undefined,
       });
     } catch (err) {
       console.warn('[LogMemory] SQLite write failed:', err);
@@ -138,7 +141,13 @@ export class LogMemory {
           shouldSwap: r.status === 'success',
         },
         quote: { amountOut: String(r.to_amount) },
-        execution: r.tx_hash ? { txHash: r.tx_hash, gasUsedUsd: r.gas_cost_usd } : undefined,
+        execution: r.tx_hash ? {
+          txHash: r.tx_hash,
+          gasUsedUsd: r.gas_cost_usd,
+          auditUrl: (r as any).audit_url ?? undefined,
+          jobId: (r as any).job_id ?? undefined,
+          retryCount: (r as any).retry_count ?? 0,
+        } : undefined,
         portfolioState: (() => {
           const raw = (r as any).portfolio_state;
           if (raw) {

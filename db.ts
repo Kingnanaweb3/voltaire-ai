@@ -45,6 +45,9 @@ db.exec(`
 
 // Migrations — safe to re-run
 try { db.exec('ALTER TABLE rebalances ADD COLUMN portfolio_state TEXT'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE rebalances ADD COLUMN audit_url TEXT'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE rebalances ADD COLUMN job_id TEXT'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE rebalances ADD COLUMN retry_count INTEGER'); } catch { /* already exists */ }
 
 export type Rebalance = {
   id?: number;
@@ -63,17 +66,20 @@ export type Rebalance = {
   max_drift?: number;
   portfolio_state?: string;
   user_address?: string;
+  audit_url?: string;
+  job_id?: string;
+  retry_count?: number;
 };
 
 const insertRebalanceStmt = db.prepare(`
   INSERT INTO rebalances
-  (timestamp, from_asset, to_asset, from_amount, to_amount, eth_price, gas_cost_usd, tx_hash, reasoning, status, trigger_type, total_usd_value, max_drift, portfolio_state, user_address)
-  VALUES (@timestamp, @from_asset, @to_asset, @from_amount, @to_amount, @eth_price, @gas_cost_usd, @tx_hash, @reasoning, @status, @trigger_type, @total_usd_value, @max_drift, @portfolio_state, @user_address)
+  (timestamp, from_asset, to_asset, from_amount, to_amount, eth_price, gas_cost_usd, tx_hash, reasoning, status, trigger_type, total_usd_value, max_drift, portfolio_state, user_address, audit_url, job_id, retry_count)
+  VALUES (@timestamp, @from_asset, @to_asset, @from_amount, @to_amount, @eth_price, @gas_cost_usd, @tx_hash, @reasoning, @status, @trigger_type, @total_usd_value, @max_drift, @portfolio_state, @user_address, @audit_url, @job_id, @retry_count)
 `);
 
 export function addRebalance(r: Rebalance): number {
   const info = insertRebalanceStmt.run({
-    eth_price: null, gas_cost_usd: null, tx_hash: null, reasoning: null, trigger_type: null, total_usd_value: null, max_drift: null, portfolio_state: null, user_address: null,
+    eth_price: null, gas_cost_usd: null, tx_hash: null, reasoning: null, trigger_type: null, total_usd_value: null, max_drift: null, portfolio_state: null, user_address: null, audit_url: null, job_id: null, retry_count: null,
     ...r,
   });
   return Number(info.lastInsertRowid);

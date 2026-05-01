@@ -39,7 +39,7 @@ export function HistoryPage({ data, walletMode, setWalletMode }: { data: any; wa
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
             <thead>
               <tr>
-                {['Date', 'Action', 'In', 'Out', 'Drift', 'Gas (USD)', 'TX', 'Status'].map((h) => (
+                {['Date', 'Action', 'In', 'Out', 'Drift', 'Gas (USD)', 'Audit', 'Retries', 'TX', 'Status'].map((h) => (
                   <th
                     key={h}
                     style={{
@@ -86,7 +86,31 @@ export function HistoryPage({ data, walletMode, setWalletMode }: { data: any; wa
                         : '—'}
                     </td>
                     <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono, color: T.amber }}>
-                      {gasUsd != null ? `$${Number(gasUsd).toFixed(4)}` : '—'}
+                      {gasUsd != null ? `${Number(gasUsd).toFixed(4)}` : '—'}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono }}>
+                      {row.execution?.auditUrl ? (<a
+                        
+                          href={row.execution.auditUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="keeperhub-audit-link"
+                          style={{
+                            color: T.purple,
+                            textDecoration: 'none',
+                            borderBottom: `1px dashed ${T.purple}80`,
+                            fontSize: 11,
+                          }}
+                          title="View execution on KeeperHub"
+                        >
+                          KeeperHub ↗
+                        </a>
+                      ) : (
+                        <span style={{ color: T.textMuted }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 0', fontSize: 11, fontFamily: T.mono, color: T.textSecondary, textAlign: 'center' }}>
+                      {row.execution?.retryCount != null ? row.execution.retryCount : '—'}
                     </td>
                     <td style={{ padding: '12px 0', fontSize: 12, fontFamily: T.mono }}>
                       {txHash ? (
