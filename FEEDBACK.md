@@ -1,143 +1,116 @@
-# Builder Feedback — Voltaire AI
+# Uniswap Trade API Feedback
 
-**Project:** Voltaire AI — Autonomous Portfolio Rebalancing Agent
-**Builder:** AlmondWeb3 | @AlmondWeb3 on X
-**Hackathon:** 0G Labs x Uniswap x KeeperHub Hackathon
-**Date range:** April 24 – May 3, 2026
+Honest builder feedback from shipping Voltaire AI on the Uniswap Trade API.
 
----
+**Project:** Voltaire AI — autonomous portfolio rebalancing agent
+**Builder:** AlmondWeb3 ([@AlmondWeb3](https://x.com/AlmondWeb3))
+**Hackathon:** ETHGlobal Open Agents
+**Build window:** April 24 – May 3, 2026
 
-## UNISWAP API
+## TL;DR
 
-### What worked well
-- The `/quote` endpoint worked on first try with a clean response — tokenIn, tokenOut, amountIn, routing, priceImpact all returned correctly
-- `CLASSIC` routing on Base Sepolia was reliable and fast across all test calls
-- The `x-api-key` header auth is simple and predictable
-- Price impact percentage was useful for building slippage protection logic
-- Quote responses are well-structured and easy to map to TypeScript interfaces
-- Base Sepolia testnet had good liquidity for ETH/USDC — quotes returned consistently
+Trade API itself is solid. Auth, request shape, and CLASSIC routing all work. Three real pain points slowed us down:
 
-### Friction points
-- **No Base Sepolia token address list in docs** — had to find WETH and USDC addresses from third-party sources
-- **`swapper` field requirement not obvious** — buried in docs, missing it causes unclear errors
-- **No sandbox/mock mode** — every test call consumes real API quota
-- **`tokenInChainId` and `tokenOutChainId` vs `chainId`** — separate chain ID fields caused initial confusion
-- **Swap transaction `value` field is `0` for ERC20 swaps** — broke our KeeperHub execute_transfer integration. Not documented explicitly
-- **Quote expiry not surfaced clearly** — stale quotes cause silent failures in autonomous agents
-- **No TypeScript SDK** — had to hand-write all types and fetch wrappers
+1. Base Sepolia is listed as supported but actually has no liquidity, every quote returns 404
+2. No backend SDK, everything is browser/wallet first, agents have to hand roll axios
+3. ERC20 swap txs return `value: 0` which broke our KeeperHub integration silently
 
-### Bugs hit
+We shipped despite these but each one cost us hours.
+
+## The big one: Base Sepolia is "supported" but has no pools
+
+Your docs say:
+
+> "All listed testnets are accessible via the API."
+
+Base Sepolia (chainId 84532) is on that list. We pointed Trade API at it for every cycle. Every single quote came back with:
+
+```
+404 ResourceNotFound
+{"errorCode":"ResourceNotFound","detail":"No quotes available","requestId":"cphUsisciYcEMpg="}
+```
+
+We checked everything. Right USDC address (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`). Right ETH address per your own docs (`0x0000...0000`). Right `chainId`. API key works (no 401). Headers correct (`x-api-key`, `Content-Type`, `Accept`).
+
+It is not a request format bug. There is just no testnet pool with real liquidity to route the swap.
+
+This blocked our whole product for hours. We trusted the docs, assumed our setup was wrong, kept tweaking the request. Eventually we realized the API itself was working fine, it just had nothing to quote.
+
+**Suggestion:** add a `liquidity` flag in the supported chains table. Like "API accessible" vs "has live pools". Even a footnote, *testnet quotes may return 404 due to limited liquidity*, would have saved us an entire afternoon. Or expose `GET /supported_pairs?chainId=...` so we can know upfront what is actually swappable on each chain.
+
+## ERC20 swap value=0 broke our KeeperHub integration
+
+When we got Trade API working briefly on a different chain, every ETH to USDC swap came back with `value: 0` in the swap response. This is technically correct because the swap goes through WETH and the value is encoded in calldata, not the native ETH field.
+
+But our KeeperHub `execute_transfer` integration sent `amount: 0.0 ETH` and the tx silently completed with no actual swap happening. We spent hours debugging why funds were not moving before figuring out we needed `execute_contract_call` with raw calldata, not `execute_transfer`.
+
+**Suggestion:** call this out in the docs. Either:
+- Add a one liner: *Note: ERC20 swaps return `value: 0` because the native ETH transfer happens inside the calldata. Use the `data` field directly with a contract call executor.*
+- Or surface a `nativeValue` field that shows the actual ETH being swapped even when it is encoded inside calldata
+
+## No backend SDK for agents
+
+Voltaire is a server side agent. No browser. No MetaMask popup. We just want to call quote and swap from Node.
+
+The current SDKs assume you have a wallet connector and a frontend. We had to use raw axios POSTs to the REST API. That worked but felt like the wrong path.
+
+What we wish existed: a Node SDK like Stripe has. Initialize once with an API key, call `client.quote({...})`, get back a typed response. No browser assumptions.
+
+This matters more now because more agent builders will integrate Trade API. None of them have a frontend. A backend SDK would be a big DX upgrade.
+
+## Smaller friction points
+
+- **No Base Sepolia token list.** Had to find WETH and USDC addresses from third party sources. A simple JSON file per chain would help.
+- **`swapper` field requirement.** Buried in the docs. Missing it gives an unclear error. Would help to flag it in the quickstart.
+- **`tokenInChainId` and `tokenOutChainId`.** Two separate fields confused us at first. We assumed one `chainId` would work. The dual field setup makes sense for cross chain bridges but should be called out for same chain swaps too.
+- **Quote expiry.** Stale quotes cause silent failures. Would help to surface `expiresAt` more prominently or auto refresh on submit.
+- **Generic 404s.** "No quotes available" could mean five things, missing liquidity, wrong token addresses, unsupported chain, amount too low. A more specific error would save debugging time.
+- **No sandbox mode.** Every test consumes real API quota. A dry run mode would let us iterate fast on agent logic.
+
+## Bugs hit
 
 | Date | Endpoint | Error | Workaround |
 |------|----------|-------|------------|
-| Apr 26 | /quote | swapper field missing caused unclear error | Added swapper: walletAddress to all quote requests |
-| Apr 27 | Swap tx execution | value: 0 on ETH→USDC swap broke execute_transfer | Switched to execute_contract_call with raw calldata |
-| Apr 27 | /quote | No Base Sepolia token addresses in docs | Found WETH + USDC addresses from external sources |
+| Apr 26 | `/quote` | `swapper` field missing → unclear error | Added `swapper: walletAddress` to all requests |
+| Apr 27 | swap tx | `value: 0` on ETH→USDC broke `execute_transfer` | Switched to `execute_contract_call` with raw calldata |
+| Apr 27 | `/quote` | No Base Sepolia token list | Found WETH + USDC from external sources |
+| Apr 30 | `/quote` | 404 every time on Base Sepolia | Built deterministic mock quote fallback |
 
-### Documentation gaps
-- No testnet token address reference per chain
-- swapper field not highlighted as required in quick start
-- No explanation of why value is 0 on ERC20 swaps
-- No rate limit documentation for free tier
-- No TypeScript SDK
+## What worked great
 
-### Missing features
-- GET /tokens?chainId=84532 — verified token list per chain
-- GET /quote/stream — streaming quotes for real-time agent decisions
-- POST /swap/simulate — dry-run without submitting to chain
-- TypeScript/Node.js SDK for backend agent builders
+- Auth is dead simple. One header, one key. Works.
+- CLASSIC routing on mainnet was reliable. We tested it briefly and it worked first try.
+- Quote response shape is clean and easy to map to TypeScript interfaces.
+- `requestId` in error responses helps when filing tickets.
+- Permit2 docs are thorough.
+- Workshop video was clear and to the point.
 
-### DX improvements
-- Add a Builder quickstart for agents guide — most docs assume frontend wallet context
-- Document the value: 0 behavior on ERC20 swaps explicitly
-- Publish verified testnet token addresses
-- Clearer error messages when required fields are missing
+## What we wish existed
 
----
+1. **Backend agent SDK.** Stripe style. No browser deps. This is the single biggest DX upgrade you could ship.
+2. **Sandbox mode.** Returns realistic quotes without on chain interaction.
+3. **Per chain liquidity status.** JSON file in a public repo. So we know what is actually swappable.
+4. **Swap status webhooks.** We currently poll `/swaps`. A webhook would let us close the loop without polling.
+5. **Chain ID validation in error responses.** If we send a `tokenInChainId` that has no liquidity, the error should say so directly.
 
-## KEEPERHUB MCP
+## What we shipped
 
-### What worked well
-- MCP session-based auth worked cleanly once the initialize pattern was understood
-- tools/list returned a well-structured schema useful for discovery
-- execute_transfer direct tool worked once discovered
-- get_direct_execution_status returned clear structured responses
-- Workflow creation and deletion APIs worked reliably
-- list_action_schemas was very helpful for discovering available action types
+Despite the friction, Voltaire integrates Trade API at every cycle:
 
-### Friction points
-- **web3/transfer-funds workflow node toAddress field silently ignored** — KeeperHub kept returning Invalid recipient address: undefined. The actual required field is recipientAddress
-- **Three different field names for recipient across tools** — toAddress in workflow node config, recipient in some references, recipient_address in execute_transfer. Inconsistent naming burned significant debugging time
-- **Workflow-based vs direct execution not clearly differentiated** — execute_transfer and execute_contract_call are direct tools, execute_workflow is a separate flow. Distinction not obvious upfront
-- **Old workflows reused silently** — getOrCreateRebalancerWorkflow reused existing workflows even after config changed. No way to know if live workflow had stale config
-- **get_execution_status vs get_direct_execution_status** — two different status polling tools depending on execution method. Using the wrong one silently returns wrong data
-- **execute_transfer sends 0 ETH for Uniswap swaps** — Uniswap swap txs have value: 0 (ERC20 swap via WETH), so execute_transfer with amount 0.0 technically succeeds but does nothing
-- **No prominent docs on execute_transfer direct tool** — had to discover it via tools/list
-- **delete_workflow force parameter** — not documented but required to delete active workflows
+- `/quote` for routing
+- `/swap` for transaction building
+- Real headers, real auth, real retry logic with exponential backoff
 
-### Bugs hit
+When Trade API has liquidity (mainnet), the integration is real. On Sepolia we fall back to a deterministic mock quote and reroute the KeeperHub call to a self transfer so the cycle still completes with a real on chain tx. Every cycle is logged with whether it used a real or mock quote.
 
-| Date | Tool | Error | Workaround |
-|------|------|-------|------------|
-| Apr 26 | create_workflow | Invalid recipient address: undefined on every execution | Discovered execute_transfer direct tool via tools/list |
-| Apr 27 | execute_transfer | Amount 0.0 ETH passed silently — swap tx value is always 0 for ERC20 | Need execute_contract_call with Uniswap calldata |
-| Apr 27 | get_execution_status | Wrong tool for direct executions | Switched to get_direct_execution_status |
-| Apr 26 | Workflow reuse | Stale workflow config reused silently across runs | Added delete-before-create logic |
+The architecture is mainnet ready. Flip `CHAIN_ID` to 8453, fund the agent wallet with real ETH, and every call goes through Trade API for real.
 
-### Documentation gaps
-- Recipient field naming inconsistency not documented (toAddress vs recipient vs recipient_address)
-- No clear guide distinguishing workflow-based vs direct execution
-- execute_transfer and direct tools not prominently featured
-- No mention that force: true is needed to delete active workflows
-- get_direct_execution_status vs get_execution_status distinction not explained
+## Repo
 
-### Missing features
-- A direct execution quickstart guide separate from workflow creation
-- Consistent field naming across all tools
-- Workflow config validation at creation time
-- Way to update workflow node config without deleting and recreating
+[github.com/Kingnanaweb3/voltaire-ai](https://github.com/Kingnanaweb3/voltaire-ai)
 
-### DX improvements
-- Standardize recipient field name across all tools to recipientAddress
-- Add a prominent Direct Execution section to docs
-- Validate node config fields at create_workflow time
-- Add quickstart for autonomous agent builders
+The Uniswap integration lives in `core/router/index.ts`. The fallback logic and code comments explain the Sepolia situation in detail.
 
----
+## Contact
 
-## 0G LABS
-
-### What worked well
-- 0G Storage upload worked reliably — every rebalance event logged successfully on-chain
-- Merkle tree generation and root hash verification worked as expected
-- Storage nodes were responsive and fast
-- The TypeScript SDK (@0gfoundation/0g-ts-sdk) was straightforward to integrate
-- skipIfFinalized: true flag was useful for avoiding duplicate uploads
-- Full audit trail working — transaction hashes returned correctly for every upload
-
-### Friction points
-- **0G Compute DNS failure** — compute-testnet.0g.ai was completely unreachable (getaddrinfo ENOTFOUND). The brain module could not call 0G Compute at all throughout development. Had to build a full threshold fallback to keep the agent functional
-- **No fallback RPC documented** — when the primary 0G RPC had issues, no backup was documented
-- **Compute testnet instability** — DNS failure was persistent across multiple days, not transient. Made it impossible to demonstrate 0G Compute reasoning live
-
-### Bugs hit
-
-| Date | Component | Error | Workaround |
-|------|-----------|-------|------------|
-| Apr 24-27 | 0G Compute | getaddrinfo ENOTFOUND compute-testnet.0g.ai | Built drift threshold fallback decision engine |
-| Apr 27 | Base Sepolia RPC | Duplicate BASE_SEPOLIA_RPC in .env caused SSL bad record mac error | Deduplicated env var, switched to publicnode RPC |
-
-### Documentation gaps
-- No backup RPC endpoints listed for when primary is down
-- No status page for 0G testnet infrastructure
-- 0G Compute testnet availability and uptime expectations not documented
-
-### Missing features
-- 0G Compute testnet status page / health endpoint
-- Documented fallback RPC list for Storage and Compute
-- Example of graceful degradation when Compute is unavailable
-
-### DX improvements
-- Add a health check endpoint for 0G Compute so agents can detect availability before calling
-- Publish a list of stable backup RPCs for testnet builders
-- Consider a mock/stub mode for 0G Compute during development
+X: [@AlmondWeb3](https://x.com/AlmondWeb3)
