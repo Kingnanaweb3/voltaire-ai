@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '../.env' });
 
 import { KVMemory, LogMemory } from '../core/memory';
+import { SwarmCoordinator } from '../packages/voltaire-kit/src';
+import { ethers } from 'ethers';
 
 const app = express();
 app.use(cors({ origin: ['http://localhost:3000', process.env.FRONTEND_URL || 'http://localhost:3000'], methods: ['GET', 'POST'], credentials: true }));
@@ -453,6 +455,139 @@ function getNextCronRun(cronExp: string): string {
   if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
   return next.toISOString();
 }
+
+// =============================================================================
+// SWARM ROUTES — multi-agent coordination via VoltaireKit + 0G Storage
+// =============================================================================
+
+// Three demo agents with deterministic wallets (so the dashboard is reproducible)
+const swarmWallets = {
+  monitor:    new ethers.Wallet('0x' + '11'.repeat(32)),
+  rebalancer: new ethers.Wallet('0x' + '22'.repeat(32)),
+  dca:        new ethers.Wallet('0x' + '33'.repeat(32)),
+};
+
+const swarm = {
+  monitor: new SwarmCoordinator({
+    memory: kvMemory,
+    agentId: 'agent:monitor:01',
+    role: 'monitor',
+    walletAddress: swarmWallets.monitor.address,
+  }),
+  rebalancer: new SwarmCoordinator({
+    memory: kvMemory,
+    agentId: 'agent:rebalancer:01',
+    role: 'rebalancer',
+    walletAddress: swarmWallets.rebalancer.address,
+  }),
+  dca: new SwarmCoordinator({
+    memory: kvMemory,
+    agentId: 'agent:dca:01',
+    role: 'dca',
+    walletAddress: swarmWallets.dca.address,
+  }),
+};
+
+// Auto-register all three on boot (idempotent)
+(async () => {
+  await swarm.monitor.register();
+  await swarm.rebalancer.register();
+  await swarm.dca.register();
+  console.log('[Swarm] 3 agents registered');
+})().catch(err => console.error('[Swarm] register failed:', err));
+
+// GET /api/swarm/state — full snapshot for the dashboard
+app.get('/api/swarm/state', async (req, res) => {
+  try {
+    // Pull all known agents
+    const agentIds = ['agent:monitor:01', 'agent:rebalancer:01', 'agent:dca:01'];
+    const agents = await Promise.all(
+      agentIds.map(async (id) => {
+        const info = await kvMemory.get(`swarm:agents:${id}`);
+        return info || null;
+      })
+    );
+
+    // Pull signals from all known topics
+    const topics = ['market:eth_drop', 'exec:dca_tick', 'exec:claim_lock'];
+    const signalArrays = await Promise.all(
+      topics.map(async (t) => (await kvMemory.get(`swarm:signals:${t}`)) || [])
+    );
+    const signals = signalArrays
+      .flat()
+      .sort((a: any, b: any) => b.timestamp - a.timestamp)
+      .slice(0, 20);
+
+    // Pull active claims
+    const claimTargets = ['rebalance:eth_drop:01'];
+    const claims = (await Promise.all(
+      claimTargets.map(async (t) => {
+        const c = await kvMemory.get(`swarm:claims:${t}`);
+        return c ? { target: t, ...c } : null;
+      })
+    )).filter(Boolean);
+
+    res.json({
+      agents: agents.filter(Boolean),
+      signals,
+      claims,
+      lastUpdate: Date.now(),
+    });
+  } catch (err: any) {
+    console.error('[swarm/state] error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/swarm/trigger — fires one demo cycle, returns the signals it wrote
+app.post('/api/swarm/trigger', async (req, res) => {
+  try {
+    const cycle: any[] = [];
+
+    // Step 1: monitor sees a market drop, publishes signal
+    const drop = {
+      asset: 'ETH',
+      delta: -0.04 - Math.random() * 0.03,
+      price: 2400 + Math.floor(Math.random() * 200),
+    };
+    const sig1 = await swarm.monitor.publishSignal('market:eth_drop', drop);
+    cycle.push({ step: 'monitor.publish', signal: sig1 });
+
+    // Step 2: rebalancer reads, claims execution
+    const seenByRebalancer = await swarm.rebalancer.readSignals('market:eth_drop');
+    const claimTarget = `rebalance:eth_drop:${Date.now()}`;
+    const claimed = await swarm.rebalancer.claimExecution(claimTarget, 30_000);
+    cycle.push({
+      step: 'rebalancer.read+claim',
+      sawSignals: seenByRebalancer.length,
+      claimed,
+      target: claimTarget,
+    });
+
+    // Step 3: dca reads, sees claim, falls back to its own action
+    const seenByDca = await swarm.dca.readSignals('market:eth_drop');
+    const dcaTried = await swarm.dca.claimExecution(claimTarget, 30_000);
+    let sig2 = null;
+    if (!dcaTried) {
+      sig2 = await swarm.dca.publishSignal('exec:dca_tick', { amount: 50, asset: 'ETH' });
+    }
+    cycle.push({
+      step: 'dca.read+fallback',
+      sawSignals: seenByDca.length,
+      claimedRebalance: dcaTried,
+      fallbackSignal: sig2,
+    });
+
+    res.json({
+      success: true,
+      cycle,
+      message: '3 agents coordinated via 0G Storage',
+    });
+  } catch (err: any) {
+    console.error('[swarm/trigger] error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
