@@ -1,0 +1,18 @@
+{
+  "name": "@voltaire/kit",
+  "version": "0.1.0",
+  "description": "DeFi agent framework. Memory, brain, execution, swarm coordination, ERC-7857 identity.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "demo:swarm": "ts-node examples/swarm-demo/index.ts"
+  },
+  "keywords": ["0g", "defi", "agent", "framework", "erc-7857"],
+  "author": "Almond (@AlmondWeb3)",
+  "license": "MIT",
+  "peerDependencies": {
+    "ethers": "^6.0.0",
+    "@0gfoundation/0g-ts-sdk": "^1.2.6"
+  }
+}

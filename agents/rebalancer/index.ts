@@ -6,12 +6,21 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '../../.env' });
 
 import { ethers } from 'ethers';
-import { OGComputeBrain } from '../../core/brain';
-import { KVMemory, LogMemory } from '../../core/memory';
-import { UniswapRouter, TOKENS } from '../../core/router';
-import { KeeperHubExecutor } from '../../core/executor';
-import { ScheduledTrigger, InstructionTrigger } from '../../core/trigger';
-import { PortfolioState, SwapDecision, RebalanceEvent } from '../../core/types';
+// Voltaire AI — first agent built on VoltaireKit framework.
+// All primitives below come from the kit, not the core/ directory.
+import {
+  OGComputeBrain,
+  KVMemory,
+  LogMemory,
+  UniswapRouter,
+  TOKENS,
+  KeeperHubExecutor,
+  ScheduledTrigger,
+  InstructionTrigger,
+  PortfolioState,
+  SwapDecision,
+  RebalanceEvent,
+} from '../../packages/voltaire-kit/src';
 import { v4 as uuidv4 } from 'uuid';
 
 const brain     = new OGComputeBrain();

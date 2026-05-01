@@ -1,5 +1,6 @@
 {
   "name": "voltaire-ai",
+  "workspaces": ["packages/*"],
   "version": "1.0.0",
   "description": "Modular autonomous on-chain agent framework — daily portfolio rebalancer",
   "private": true,
