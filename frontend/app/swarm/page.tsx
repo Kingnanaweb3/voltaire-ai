@@ -1,5 +1,5 @@
-import Swarm from "@/components/pages/Swarm";
+import { SwarmPage } from "@/components/pages/Swarm";
 
-export default function SwarmPage() {
-  return <Swarm />;
+export default function Page() {
+  return <SwarmPage />;
 }

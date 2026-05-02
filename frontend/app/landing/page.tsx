@@ -1093,12 +1093,12 @@ function FooterSection() {
           marginBottom: 8,
         }}>
           Built by{' '}
-          <a href="https://x.com/AlmondWeb3" target="_blank" rel="noopener noreferrer" style={{
+          <a href="https://x.com/Almond_env" target="_blank" rel="noopener noreferrer" style={{
             color: C.lime,
             textDecoration: 'none',
             fontWeight: 500,
           }}>
-            @AlmondWeb3
+            @Almond_env
           </a>
           {' '}for ETHGlobal Open Agents · May 2026
         </div>
