@@ -11,7 +11,7 @@ import { SwarmCoordinator } from '../packages/voltaire-kit/src';
 import { ethers } from 'ethers';
 
 const app = express();
-app.use(cors({ origin: ['http://localhost:3000', process.env.FRONTEND_URL || 'http://localhost:3000'], methods: ['GET', 'POST'], credentials: true }));
+app.use(cors({ origin: true, methods: ['GET', 'POST', 'OPTIONS'], credentials: true }));
 app.use(express.json());
 
 const kvMemory = new KVMemory();
