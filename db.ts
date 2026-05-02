@@ -48,6 +48,9 @@ try { db.exec('ALTER TABLE rebalances ADD COLUMN portfolio_state TEXT'); } catch
 try { db.exec('ALTER TABLE rebalances ADD COLUMN audit_url TEXT'); } catch { /* already exists */ }
 try { db.exec('ALTER TABLE rebalances ADD COLUMN job_id TEXT'); } catch { /* already exists */ }
 try { db.exec('ALTER TABLE rebalances ADD COLUMN retry_count INTEGER'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE rebalances ADD COLUMN total_usd_value REAL'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE rebalances ADD COLUMN max_drift REAL'); } catch { /* already exists */ }
+try { db.exec('ALTER TABLE rebalances ADD COLUMN user_address TEXT'); } catch { /* already exists */ }
 
 export type Rebalance = {
   id?: number;
