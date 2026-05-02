@@ -136,13 +136,25 @@ app.post('/api/webhook/test', async (req, res) => {
   }
 });
 
+// ─── GET /api/poll-trigger ───────────────────────────────────────────────────
+let manualTriggerPending = false;
+app.get('/api/poll-trigger', (req, res) => {
+  if (manualTriggerPending) {
+    manualTriggerPending = false;
+    return res.json({ triggered: true });
+  }
+  res.json({ triggered: false });
+});
+
 // ─── POST /api/trigger ───────────────────────────────────────────────────────
 app.post('/api/trigger', async (req, res) => {
   try {
-    db.prepare("INSERT OR REPLACE INTO state (key, value) VALUES ('trigger:manual', ?)").run(String(Date.now()));
+    manualTriggerPending = true;
     res.json({ message: 'Rebalance triggered', timestamp: Date.now() });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
   }
 });
 
