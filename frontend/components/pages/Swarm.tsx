@@ -75,12 +75,12 @@ export function SwarmPage() {
         setState(data);
         setLoading(false);
         // Detect new signals → flash the agent that published
-        if (data.signals && data.signals.length > lastSignalCount && lastSignalCount > 0) {
+        if (data && data.signals && data.signals.length > lastSignalCount && lastSignalCount > 0) {
           const newest = data.signals[0];
           setPulseAgent(newest.agentId);
           setTimeout(() => setPulseAgent(null), 1500);
         }
-        setLastSignalCount(data.signals?.length || 0);
+        setLastSignalCount(data?.signals?.length || 0);
       } catch (err) {
         console.error('swarm fetch failed:', err);
       }

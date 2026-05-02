@@ -1,5 +1,6 @@
 // ─── Voltaire AI — API Server ────────────────────────────────────────────────
 
+import db from '../db';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -137,9 +138,12 @@ app.post('/api/webhook/test', async (req, res) => {
 
 // ─── POST /api/trigger ───────────────────────────────────────────────────────
 app.post('/api/trigger', async (req, res) => {
-  const trigger = (global as any).instructionTrigger;
-  if (!trigger) return res.status(503).json({ error: 'Agent not connected' });
-  return trigger.handler(req, res);
+  try {
+    db.prepare("INSERT OR REPLACE INTO state (key, value) VALUES ('trigger:manual', ?)").run(String(Date.now()));
+    res.json({ message: 'Rebalance triggered', timestamp: Date.now() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ─── GET /api/config ─────────────────────────────────────────────────────────

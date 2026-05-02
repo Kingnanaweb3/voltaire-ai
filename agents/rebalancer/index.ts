@@ -278,11 +278,22 @@ async function main() {
   console.log('✓ KeeperHub ready\n');
 
   // Start triggers
-  const scheduled   = new ScheduledTrigger();
-  const instruction = new InstructionTrigger();
+  const scheduled = new ScheduledTrigger();
   scheduled.start(runRebalance);
-  instruction.start(runRebalance);
-  (global as any).instructionTrigger = instruction;
+
+  // Poll SQLite for manual trigger flag from API
+  const pollDb = require('../../db').default;
+  setInterval(async () => {
+    try {
+      const row = pollDb.prepare("SELECT value FROM state WHERE key = 'trigger:manual'").get() as any;
+      if (row) {
+        pollDb.prepare("DELETE FROM state WHERE key = 'trigger:manual'").run();
+        console.log('[InstructionTrigger] Manual trigger received — firing cycle');
+        await runRebalance();
+      }
+    } catch {}
+  }, 1000);
+  console.log('[InstructionTrigger] Ready — POST /api/trigger to fire');
 
   console.log('✓ Agent running — triggers active\n');
 
