@@ -155,8 +155,6 @@ app.post('/api/trigger', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-  }
-});
 
 // ─── GET /api/config ─────────────────────────────────────────────────────────
 app.get('/api/config', async (req, res) => {
