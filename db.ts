@@ -159,3 +159,17 @@ export function getState<T>(key: string): T | undefined {
 }
 
 export default db;
+
+// ── Runtime migrations ────────────────────────────────────────────────────────
+const migrations = [
+  `ALTER TABLE rebalances ADD COLUMN total_usd_value REAL DEFAULT 0`,
+  `ALTER TABLE rebalances ADD COLUMN max_drift REAL DEFAULT 0`,
+  `ALTER TABLE rebalances ADD COLUMN gas_used_usd REAL DEFAULT 0`,
+  `ALTER TABLE rebalances ADD COLUMN audit_url TEXT DEFAULT ''`,
+  `ALTER TABLE rebalances ADD COLUMN job_id TEXT DEFAULT ''`,
+  `ALTER TABLE rebalances ADD COLUMN retry_count INTEGER DEFAULT 0`,
+];
+
+for (const migration of migrations) {
+  try { db.exec(migration); } catch {}
+}
