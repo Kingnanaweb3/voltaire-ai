@@ -124,7 +124,7 @@ function Nav() {
         <a className="nl" href="#substrate">Substrate</a>
         <a className="nl" href="https://github.com/Kingnanaweb3/voltaire-ai" target="_blank" rel="noopener noreferrer">GitHub</a>
       </div>
-      <a className="btn-lime" href="/" style={{ padding: '10px 20px', fontSize: 13 }}>Open App →</a>
+      <a className="btn-lime" href="/app" style={{ padding: '10px 20px', fontSize: 13 }}>Open App →</a>
     </nav>
   );
 }
