@@ -34,3 +34,4 @@ export type { SwarmSignal, SwarmAgentInfo } from './SwarmCoordinator';
 // NFT — ERC-7857 agent identity
 export { NFTMinter } from './NFTMinter';
 export type { AgentNFTMetadata, MintRequest } from './NFTMinter';
+// Sat May  2 16:20:22 WAT 2026
