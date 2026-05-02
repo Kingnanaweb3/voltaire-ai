@@ -149,7 +149,7 @@ app.get('/api/poll-trigger', (req, res) => {
 // ─── POST /api/trigger ───────────────────────────────────────────────────────
 app.post('/api/trigger', async (req, res) => {
   try {
-    manualTriggerPending = true;
+    db.prepare("INSERT OR REPLACE INTO state (key, value) VALUES ('trigger:manual', ?)").run(String(Date.now()));
     res.json({ message: 'Rebalance triggered', timestamp: Date.now() });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

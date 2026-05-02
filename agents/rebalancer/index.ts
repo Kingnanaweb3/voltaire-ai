@@ -282,12 +282,13 @@ async function main() {
   scheduled.start(runRebalance);
 
   // Poll SQLite for manual trigger flag from API
-  // Poll API for manual trigger flag via HTTP
+  // Poll SQLite for manual trigger flag from API
+  const pollDb = require('../../db').default;
   setInterval(async () => {
     try {
-      const res = await fetch('http://localhost:' + (process.env.PORT || 3001) + '/api/poll-trigger');
-      const data = await res.json();
-      if (data && data.triggered) {
+      const row = pollDb.prepare("SELECT value FROM state WHERE key = 'trigger:manual'").get();
+      if (row) {
+        pollDb.prepare("DELETE FROM state WHERE key = 'trigger:manual'").run();
         console.log('[InstructionTrigger] Manual trigger received — firing cycle');
         await runRebalance();
       }
