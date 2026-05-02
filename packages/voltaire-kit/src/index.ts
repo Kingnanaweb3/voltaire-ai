@@ -35,3 +35,4 @@ export type { SwarmSignal, SwarmAgentInfo } from './SwarmCoordinator';
 export { NFTMinter } from './NFTMinter';
 export type { AgentNFTMetadata, MintRequest } from './NFTMinter';
 // Sat May  2 16:20:22 WAT 2026
+// redeploy
