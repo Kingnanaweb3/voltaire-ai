@@ -145,13 +145,31 @@ export class KeeperHubExecutor {
     // Real Uniswap routing is used on mainnet (chain 8453) where Trade API has liquidity.
     const UNIVERSAL_ROUTER_SEPOLIA = '0x492e6456d9528771018deb9e87ef7750ef184104';
     const isMockSwap = tx.to?.toLowerCase() === UNIVERSAL_ROUTER_SEPOLIA.toLowerCase();
-    const recipient = isMockSwap
-      ? (process.env.AGENT_WALLET_ADDRESS || tx.to)
-      : tx.to;
+
     if (isMockSwap) {
-      console.log('[KeeperHub] Mock-swap routing — sending self-transfer in lieu of mainnet swap');
+      // Execute swap directly via ethers on Sepolia — KeeperHub transfer routing fails on testnet
+      console.log('[KeeperHub] Sepolia swap — executing directly via ethers wallet');
+      try {
+        const txRequest: any = {
+          to: tx.to,
+          data: tx.data || '0x',
+          value: tx.value ? BigInt(tx.value) : BigInt(0),
+          gasLimit: BigInt(300000),
+        };
+        const sentTx = await this.wallet.sendTransaction(txRequest);
+        console.log(`[KeeperHub] Direct swap submitted: ${sentTx.hash}`);
+        const receipt = await sentTx.wait();
+        const executionId = `direct_${sentTx.hash.slice(0, 16)}`;
+        // Store for waitForConfirmation
+        (this as any)._directTxHash = sentTx.hash;
+        (this as any)._directReceipt = receipt;
+        return executionId;
+      } catch (err: any) {
+        console.warn('[KeeperHub] Direct swap failed, falling back to self-transfer:', err.message);
+      }
     }
 
+    const recipient = tx.to;
     const amount = ethers.formatEther(tx.value || '0');
     console.log(`[KeeperHub] Executing transfer — to: ${recipient}, amount: ${amount} ETH`);
     const result = await this.callTool('execute_transfer', {
@@ -168,6 +186,25 @@ export class KeeperHubExecutor {
   }
 
   async waitForConfirmation(executionId: string, timeoutMs = 120_000): Promise<ExecutionResult> {
+    // Handle direct ethers execution
+    if (executionId.startsWith('direct_') && (this as any)._directTxHash) {
+      const txHash = (this as any)._directTxHash;
+      const receipt = (this as any)._directReceipt;
+      (this as any)._directTxHash = null;
+      (this as any)._directReceipt = null;
+      const gasUsed = receipt?.gasUsed?.toString();
+      const gasCostUsd = receipt ? Number(receipt.gasUsed * (receipt.gasPrice || BigInt(0))) / 1e18 * 2300 : undefined;
+      return {
+        success: !!receipt,
+        txHash,
+        gasUsed,
+        gasCostUsd,
+        jobId: executionId,
+        retryCount: 0,
+        confirmedAt: Date.now(),
+        auditUrl: `https://sepolia.basescan.org/tx/${txHash}`,
+      };
+    }
     const start = Date.now();
     let retryCount = 0;
 
