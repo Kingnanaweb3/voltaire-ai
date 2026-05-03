@@ -114,3 +114,11 @@ The Uniswap integration lives in `core/router/index.ts`. The fallback logic and 
 ## Contact
 
 X: [@AlmondWeb3](https://x.com/AlmondWeb3)
+
+## KeeperHub — Additional Feedback
+
+**Mock-swap routing on Base Sepolia**: When submitting Uniswap swap calldata, 
+KeeperHub routes to a self-transfer mock rather than executing the actual swap 
+on testnet. Earlier cycles succeeded with real tx hashes, but recent cycles 
+fail due to this routing behavior. A `force: true` parameter or explicit 
+testnet swap mode would resolve this.
